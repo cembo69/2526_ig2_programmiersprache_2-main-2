@@ -1,0 +1,157 @@
+*,
+::before,
+::after {
+	box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+	margin: 0;
+	background-color: black;
+	color: #cccccc;
+	font-family: 'Inter Variable', sans-serif;
+	font-size: 1rem;
+	font-weight: 300;
+	line-height: 1.2;
+}
+
+.app-container {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+	width: 100vw;
+}
+
+.app-main {
+	display: flex;
+	height: calc(100vh - 60px);
+	width: 100vw;
+	flex-direction: row;
+	overflow: auto;
+}
+
+.app-header {
+	display: flex;
+	width: 100vw;
+	height: 60px;
+	font-size: 1.2rem;
+	font-weight: 500;
+	letter-spacing: -0.01rem;
+	background: #fff;
+	color: #000;
+	box-sizing: border-box;
+	align-items: center;
+	min-height: 3.5rem;
+	padding-left: 20px;
+}
+
+.svg-container {
+	display: flex;
+	flex: 1 1 auto;
+	padding: 30px;
+	background: #2d2d2dff;
+	justify-content: center;
+	align-items: center;
+}
+
+.svg-canvas {
+	width: auto;
+	height: 100%;
+	aspect-ratio: 1 / 1;
+	background: black;
+}
+
+svg {
+	shape-rendering: auto;
+	shape-rendering: crispEdges;
+	shape-rendering: geometricPrecision;
+	shape-rendering: optimizeSpeed;
+}
+
+
+
+.sidebar-left {
+	display: flex;
+	width: 350px;
+	flex-direction: column;
+	background: #1c1c1c;
+	border-right: 1px solid #353535;
+	/* padding: 20px; */
+	padding-top: 30px;
+	color: #fff;
+}
+.sidebar-left-item {
+	background: none;
+	color: #888;
+	border: none;
+	/* margin-bottom: 1rem; */
+	cursor: pointer;
+	text-align: left;
+	font-size: 0.9rem;
+	width: 100%;
+	padding: 10px 20px 10px 20px;
+	border-top: 1px solid #333;
+	letter-spacing: 0.02rem;
+}
+.sidebar-left-item:last-child {
+	border-bottom: 1px solid #333;
+}
+.sidebar-left-item:hover {
+	color: #aaa;
+}
+.sidebar-left-item.selected {
+	color: #ddd;
+}
+.sidebar-left-description {
+	font-size: 0.7rem;
+	color: #aaa;
+	margin-top: 0.5rem;
+	line-height: 1.4;
+}
+
+.sidebar-right {
+	display: flex;
+	width: 350px;
+	flex-direction: column;
+	background: #1c1c1c;
+	border-left: 1px solid #353535;
+	padding: 20px;
+	padding-top: 30px;
+	color: #ddd;
+	letter-spacing: 0.02rem;
+}
+.sidebar-right button {
+	width: fit-content;
+}
+.sidebar-right button {
+	background: #333;
+	color: #ddd;
+	border: none;
+	padding: 5px 10px;
+	border-radius: 5px;
+	cursor: pointer;
+	font-size: 0.8rem;
+	margin-bottom: 10px;
+	font-weight: 300;
+	letter-spacing: 0.02rem;
+}
+.sidebar-right button:hover {
+	background: #444;
+	color: #fff;
+}
+.sidebar-right button:active {
+	background: #555;
+	color: #fff;
+}
+
+.sidebar-right hr {
+	border: none;
+	border-top: 1px solid #444;
+	margin: 0.5rem 0 1rem 0;
+}
+
+.sidebar-right .label {
+	font-size: 0.75rem;
+	margin-bottom: 0.5rem;
+}
