@@ -1,23 +1,21 @@
 <script>
 	import Header from '$lib/components/Header.svelte';
 
-  import { slide } from 'svelte/transition';
-	import Pattern1 from '$lib/components/1_PatternPolygonReactive.svelte';
-	import Pattern2 from '$lib/components/2_PatternPolygonReactiveOffsetSize.svelte';
+	import { slide } from 'svelte/transition';
+	import Pattern3 from '$lib/components/3_PatternVSC.svelte';
+	import Pattern4 from '$lib/components/4_PatternAdvanced.svelte';
 
 	let patterns = [
 		{
-			name: 'Tile Pattern Grid (basic)',
-			component: Pattern1,
-			description:
-				'A repeating grid pattern made from the base tile with adjustable tile count and spacing.'
+			name: 'Pattern Basic',
+			component: Pattern3,
+			description: 'The standard VSC Pattern with Sunrise Simulation.'
 		},
 		{
-			name: 'Tile Pattern Grid (advanced)',
-			component: Pattern2,
-			description:
-				'A repeating grid pattern with advanced controls: tile count, spacing, scale, and rotation.'
-		},
+			name: 'Pattern Advanced',
+			component: Pattern4,
+			description: 'Advanced VSC Pattern with high density (35 tiles) by default.'
+		}
 	];
 
 	let selectedPattern = $state(0);
