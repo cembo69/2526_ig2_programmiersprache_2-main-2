@@ -1,11 +1,12 @@
 <script>
 	import Slider from '$lib/ui/Slider.svelte';
+	import OklchColorPicker from './OklchColorPicker.svelte';
 
 	// Reduced dimensions for a single unit
 	const baseTileWidth = 703.8;
 	const baseTileHeight = 702;
 
-	let tileCount = $state(35);
+	let tileCount = $state(15);
 	let tileCountX = $derived(tileCount);
 	let tileCountY = $derived(tileCount);
 	let offset = $state(10);
@@ -13,14 +14,20 @@
 	let offsetY = $derived(offset);
 
 	// New "Exciting" Controls
-	let rotation = $state(0);
+	let rotation = $state(174);
 	const scale = 1;
-	const meshTightness = 0; // 0 = Original Look (Fixed)
+	const meshTightness = 0;
 
 	// Dynamic Colors (Hue/Sat Based Shadow System)
-	let baseHue = $state(0);
-	let baseSaturation = $state(0); // Default to Grayscale (B&W)
-	let daylightTime = $state(6); // Default Sunrise (6h)
+	// (Simplified)
+
+	// Manual Color Override
+	let useManualColor = $state(true);
+	let manualColor = $state('#00002a');
+
+	// Frame Color Override
+	let useFrameColor = $state(true);
+	let frameColor = $state('#ffffff');
 
 	// HSL Helper Functions
 	function hexToRgb(hex) {
@@ -62,35 +69,6 @@
 			h /= 6;
 		}
 		return { h: h * 360, s: s * 100, l: l * 100 };
-	}
-
-	function lerp(start, end, t) {
-		return start * (1 - t) + end * t;
-	}
-
-	function interpolateHsl(c1, c2, t) {
-		const rgb1 = hexToRgb(c1);
-		const rgb2 = hexToRgb(c2);
-		const hsl1 = rgbToHsl(rgb1.r, rgb1.g, rgb1.b);
-		const hsl2 = rgbToHsl(rgb2.r, rgb2.g, rgb2.b);
-
-		// Shortest path interpolation for Hue
-		let dh = hsl2.h - hsl1.h;
-		if (dh > 180) dh -= 360;
-		if (dh < -180) dh += 360;
-
-		const h = (hsl1.h + dh * t + 360) % 360; // Normalize
-		const s = lerp(hsl1.s, hsl2.s, t);
-		const l = lerp(hsl1.l, hsl2.l, t);
-
-		return { h, s, l }; // Return object (easier modification)
-	}
-
-	// Shift lightness helper
-	function shiftHsl(hsl, amount) {
-		// Amount is -100 to +100
-		const l = Math.max(0, Math.min(100, hsl.l + amount));
-		return `hsl(${hsl.h}, ${hsl.s}%, ${l}%)`;
 	}
 
 	// Determine max distance for normalization (center to corner)
@@ -242,215 +220,31 @@
 				{@const posX = calculatePosition(xi, tileCountX, baseTileWidth, offsetX)}
 				{@const posY = calculatePosition(yi, tileCountY, baseTileHeight, offsetY)}
 
-				<!-- Unified HSL Shadow Logic -->
-				<!-- Daylight Simulation for Center Rectangle (Sky) -->
+				<!-- STATIC FRAME COLORS (or Dynamic Frame) -->
+				{@const getFrameColors = (base) => {
+					if (!useFrameColor)
+						return { cTop: '#ffffff', cLeft: '#cccccc', cBottom: '#333333', cRight: '#000000' };
+					const hsl = getHslFromHex(base);
+					const h = hsl.h;
+					const s = hsl.s;
+					const l = Math.max(0, Math.min(100, hsl.l));
 
-				<!-- Sky Color Logic based on Time (0-24h) -->
-
-				<!-- Smooth Interpolation would be better but simple logic first -->
-				<!-- Let's do a more continuous function for smoother transitions -->
-				{@const timeNorm = daylightTime / 24}
-
-				<!-- Smooth Sky Transition Logic -->
-				{@const getSkyParams = (t) => {
-					// Keyframes for the sky cycle
-					// t = Time (0-24)
-					// Returns {h, s} interpolated
-
-					const keyframes = [
-						// 1. Night - Deep Black/Navy (Very Dark)
-						{ t: 0, h: 220, s: 20, l: 2 }, // Midnight: Almost distinct black
-						{ t: 4, h: 220, s: 30, l: 10 }, // "Blue Hour": Deepest Navy
-
-						// 2. Morning - Deep Cold Blue -> Deep Russet
-						{ t: 5, h: 210, s: 20, l: 30 }, // Dark Slate Blue
-						{ t: 5.5, h: 10, s: 25, l: 40 }, // Deep Muted Earth/Red
-
-						// 3. Golden Hour AM - Burnt Orange (Darker)
-						{ t: 6, h: 25, s: 60, l: 45 }, // Rich Deep Orange
-						{ t: 7, h: 30, s: 50, l: 55 }, // Amber/Copper
-
-						// FIX: Transition via Red/Grey to avoid Green/Yellow interpolation
-						{ t: 8.5, h: 340, s: 5, l: 70 }, // Desaturated Warm Grey (Bridge)
-
-						// 4. Noon - Cool Grey/White (Not Blinding)
-						{ t: 10, h: 205, s: 15, l: 65 }, // Mid-Grey Blue
-						{ t: 12, h: 210, s: 5, l: 75 }, // NOON: Light Grey (Not pure white)
-
-						// 5. Afternoon - Warm Grey
-						{ t: 14, h: 15, s: 15, l: 70 }, // Warm Grey/Taupe
-						{ t: 16, h: 25, s: 25, l: 60 }, // Darker Beige
-
-						// 3b. Sunset Approach - Deepening
-						{ t: 17, h: 20, s: 50, l: 50 }, // Deep Orange
-
-						// 6. Sunset - Dark Rust / Deep Maroon
-						{ t: 18, h: 10, s: 60, l: 45 }, // Dark Rust Red
-						{ t: 18.5, h: 220, s: 30, l: 30 }, // Deep Steel Blue
-
-						// 7. Blue Hour - Dark Indigo
-						{ t: 19, h: 230, s: 35, l: 20 }, // Midnight Blue
-						{ t: 19.5, h: 230, s: 40, l: 10 }, // Near Black
-
-						// 1. Night Loop
-						{ t: 21, h: 220, s: 20, l: 5 }, // Deep Dark
-						{ t: 24, h: 220, s: 20, l: 2 } // Loop
-					];
-
-					// Find current segment
-					let start = keyframes[0];
-					let end = keyframes[1];
-					for (let i = 0; i < keyframes.length - 1; i++) {
-						if (t >= keyframes[i].t && t <= keyframes[i + 1].t) {
-							start = keyframes[i];
-							end = keyframes[i + 1];
-							break;
-						}
-					}
-
-					// Normalize t within segment (0 to 1)
-					const segmentDuration = end.t - start.t;
-					const localT = (t - start.t) / (segmentDuration || 1); // Avoid div by 0
-
-					// Lerp Hue, Sat, AND Lightness
-					const h = start.h + (end.h - start.h) * localT;
-					const s = start.s + (end.s - start.s) * localT;
-					const l = start.l + (end.l - start.l) * localT;
-
-					return { h, s, l };
+					return {
+						cTop: `hsl(${h}, ${s}%, ${l}%)`,
+						cLeft: `hsl(${(h + 90) % 360}, ${s}%, ${Math.max(0, l - 20)}%)`,
+						cBottom: `hsl(${(h + 180) % 360}, ${s}%, ${Math.max(0, l - 75)}%)`,
+						cRight: `hsl(${(h + 270) % 360}, ${s}%, ${Math.max(0, l - 90)}%)`
+					};
 				}}
+				{@const fc = getFrameColors(frameColor)}
 
-				{@const sky = getSkyParams(daylightTime)}
-				{@const skyHue = sky.h}
-				{@const skySat = sky.s}
-				{@const skyLig = sky.l}
-
-				<!-- We override the lightness logic to respect the Time Cycle completely -->
-				<!-- The 'skyLig' variable now carries the realistic brightness (Noon=Bright, Night=Dark) -->
-
-				<!-- DYNAMIC SHADOWS based on SUN POSITION -->
-				<!-- Map Time to Angle. -->
-				<!-- 6h (Sunrise) = Sun at Left (-90 deg or 180) -->
-				<!-- 12h (Noon) = Sun at Top (-90 deg visual, 270) -->
-				<!-- 18h (Sunset) = Sun at Right (0 deg) -->
-				<!-- Simplified Vector Math: -->
-
-				<!-- Sun Vector (sx, sy) -->
-				<!-- We map 6h..18h to -PI to 0 range (Top semi-circle) -->
-				<!-- Actually, let's say Sun moves from Left (-1, 0) to Top (0, -1) to Right (1, 0) -->
-
-				{@const calculateLight = (t) => {
-					// Continuous Sun Path
-					// 6h = Horizon (Left, -PI)
-					// 12h = Zenith (Top, -PI/2)
-
-					// We allow t to be < 6 for pre-dawn shadow angles (light coming from "below" or just grazing)
-					// But realistically, pre-dawn light is ambient.
-					// Let's model the Sun Angle continuously anyway for smoothness.
-					const progress = (t - 6) / 12;
-					const angle = -Math.PI + progress * Math.PI;
-
-					let sunX = Math.cos(angle);
-					let sunY = Math.sin(angle);
-
-					// Intensity Ramp (Dawn Transition)
-					// 0-5h: Night Ambient (0.15)
-					// 5-7h: Dawn Ramp (0.15 -> 1.0)
-					// 7h+: Day Full (1.0)
-
-					let intensity = 0.15;
-					if (t > 5 && t <= 7) {
-						const ramp = (t - 5) / 2;
-						intensity = lerp(0.15, 1.0, ramp);
-					} else if (t > 7) {
-						intensity = 1.0;
-					}
-
-					// Shadow Dot Products
-					const litTop = Math.max(0, -sunY * 0.8 - sunX * 0.2) * intensity;
-					const litLeft = Math.max(0, -sunX * 0.8 + sunY * 0.2) * intensity;
-					const litBottom = Math.max(0, sunY * 0.8 + sunX * 0.2) * intensity;
-					const litRight = Math.max(0, sunX * 0.8 - sunY * 0.2) * intensity;
-
-					return { litTop, litLeft, litBottom, litRight, intensity };
-				}}
-
-				{@const lights = calculateLight(daylightTime)}
-
-				<!-- Apply Lighting to Base Lightness (skyLig) -->
-				<!-- We scale the offset impact by intensity too? Already handled by multiplying lit factors -->
-				<!-- But we also need shadow impact. -->
-
-				{@const calcL = (baseL, litFactor) => {
-					// LitFactor 0..1 (Scaled by intensity)
-					// Base Offset range: -40 (Shadow) to +15 (Highlight)
-					// If intensity is low (Night), contrast should be low.
-
-					// At intensity 1: Range -40..+15
-					// At intensity 0.15: Range -5..+2 ??
-
-					// Let's rely on litFactor * magnitude.
-					// But we also need the "dark side" (when litFactor is 0).
-					// We didn't calculate "shadow factor" explicitly, just "lit factor".
-					// If litTop is 0, it means it's in shadow.
-					// The default should be Shadow. Add Light if lit.
-
-					// Let's restructure calcL:
-					// Start at BaseL - MaxShadow.
-					// Add (MaxShadow + MaxHighlight) * litFactor.
-
-					// Scale dynamic range by Global Intensity?
-					// Night = Low Contrast. Day = High Contrast.
-					// We can use the 'intensity' from lights object (need to return it or simpler hack).
-					// lights.intensity is available in scope? Yes if we updated struct.
-
-					const contrastScale = lights.intensity;
-					const maxShadow = 40 * contrastScale;
-					const maxLight = 15 * contrastScale;
-
-					// LitFactor is already scaled by intensity in calculation?
-					// Wait, in previous step: litTop = ... * intensity.
-					// So litFactor is 0.15 at night.
-
-					// If we just map 0..1 to -40..15:
-					// 0 -> -40. 0.15 -> -31. (Still very dark).
-					// We want Neutral at night.
-
-					// Better approach for CalcL:
-					// Neutral Base.
-					// Add Highlight * litFactor.
-					// Subtract Shadow * (1 - litFactor)? No, directional.
-
-					// Let's stick to the previous simple logic but dampen the range if intensity is low.
-					// We need to recover 'intensity' from the block above.
-
-					// Re-reading calculateLight above: I added intensity to return object.
-
-					const range = 55 * lights.intensity; // Total dynamic range
-					const shadowDepth = 40 * lights.intensity;
-
-					// If litFactor is high (1.0 * 1.0), we add 15.
-					// If litFactor is low (0), we subtract 40.
-
-					// We need a normalized 0-1 "Lit-ness" of the surface relative to current sun?
-					// My litTop calculation includes * intensity. So it goes 0..intensity.
-
-					// Normalized Lit = litFactor / (lights.intensity || 1)
-					const normLit = litFactor / (lights.intensity || 1);
-
-					const offset = -shadowDepth + range * normLit;
-					return Math.max(0, Math.min(100, baseL + offset));
-				}}
-
-				<!-- STATIC FRAME COLORS (No Sunrise Effect) -->
-				<!-- The frame stays constant architectural B&W -->
-				{@const cTop = '#ffffff'}
-				{@const cLeft = '#cccccc'}
-				{@const cBottom = '#333333'}
-				{@const cRight = '#000000'}
+				{@const cTop = fc.cTop}
+				{@const cLeft = fc.cLeft}
+				{@const cBottom = fc.cBottom}
+				{@const cRight = fc.cRight}
 
 				<!-- DYNAMIC SKY (Rect Only) -->
-				{@const cCenter = `hsl(${skyHue}, ${skySat}%, ${skyLig}%)`}
+				{@const cCenter = manualColor}
 
 				{@const finalX = posX + (scaleX === -1 ? baseTileWidth : 0)}
 				{@const finalY = posY + (scaleY === -1 ? baseTileHeight : 0)}
@@ -486,11 +280,25 @@
 	<hr />
 	<Slider min={10} max={200} bind:value={offset} label="Tile Offset" />
 	<hr />
-	<Slider min={0} max={360} bind:value={rotation} label="Rotation (deg)" />
+	<Slider min={174} max={200} bind:value={rotation} label="Rotation (deg)" />
 	<hr />
 
 	<!-- Unified Colors -->
 	<!-- Hue/Sat are now automatic based on Time -->
+
 	<hr />
-	<Slider min={4} max={9} step={0.05} bind:value={daylightTime} label="Sunrise Time (h)" />
+	<details open>
+		<summary style="cursor: pointer; color: white; margin-bottom: 0.5rem;">Center Color</summary>
+		<div style="margin-top: 0.5rem;">
+			<OklchColorPicker bind:color={manualColor} />
+		</div>
+	</details>
+
+	<hr />
+	<details>
+		<summary style="cursor: pointer; color: white; margin-bottom: 0.5rem;">Frame Color</summary>
+		<div style="margin-top: 0.5rem;">
+			<OklchColorPicker bind:color={frameColor} />
+		</div>
+	</details>
 </div>

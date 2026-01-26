@@ -19,7 +19,7 @@
 	const meshTightness = 0; // 0 = Original Look (Fixed)
 
 	// Dynamic Colors (Hue/Sat Based Shadow System)
-	// (Simplified: Removed dynamic sky logic)
+	// (Simplified)
 
 	// Manual Color Override
 	let useManualColor = $state(true);
@@ -95,7 +95,13 @@
 	// If we want it to "grow from center", a fixed large viewBox is best, OR a reactive centered one.
 	// Let's try a reactive one that ensures the whole pattern is visible, centered on 0,0.
 
-	// Total width approx: count * size + count * gap
+	// Grid calculations
+	// Increase render count to cover corners when rotated
+	let renderCount = $derived(Math.ceil(tileCount * 1.5) + 2);
+	let renderCountX = $derived(renderCount);
+	let renderCountY = $derived(renderCount);
+
+	// ViewBox stays based on the visible tileCount
 	let totalWidth = $derived(tileCountX * baseTileWidth + tileCountX * offsetX);
 	let totalHeight = $derived(tileCountY * baseTileHeight + tileCountY * offsetY);
 
@@ -211,70 +217,72 @@
 </script>
 
 <div class="svg-container">
+	<!-- Apply 45 degree rotation to the entire SVG content around the center -->
+	<!-- Center is 0,0 since vbox is centered on 0,0 -->
 	<svg viewBox="{vbX} {vbY} {vbW} {vbH}" class="svg-canvas" preserveAspectRatio="xMidYMid meet">
-		{#each Array(tileCountY) as _, yi}
-			{#each Array(tileCountX) as _, xi}
-				{@const scaleX = xi % 2 !== 0 ? -1 : 1}
-				{@const scaleY = yi % 2 !== 0 ? -1 : 1}
+		<g transform="rotate(45)">
+			{#each Array(renderCountY) as _, yi}
+				{#each Array(renderCountX) as _, xi}
+					{@const scaleX = xi % 2 !== 0 ? -1 : 1}
+					{@const scaleY = yi % 2 !== 0 ? -1 : 1}
 
-				{@const posX = calculatePosition(xi, tileCountX, baseTileWidth, offsetX)}
-				{@const posY = calculatePosition(yi, tileCountY, baseTileHeight, offsetY)}
+					<!-- Use renderCount for positioning calculation to maintain center -->
 
-				<!-- STATIC FRAME COLORS (or Dynamic Frame) -->
-				{@const getFrameColors = (base) => {
-					if (!useFrameColor)
-						return { cTop: '#ffffff', cLeft: '#cccccc', cBottom: '#444444', cRight: '#1a1a1a' };
-					const hsl = getHslFromHex(base);
-					// Tetradic Rotation (90deg steps)
-					// Plus standardized Lightness steps to preserve 3D form relative to input
-					// We clamp lightness to ensure visibility
-					const h = hsl.h;
-					const s = hsl.s;
-					const l = Math.max(0, Math.min(100, hsl.l));
+					<!-- Unified HSL Shadow Logic -->
 
-					return {
-						cTop: `hsl(${h}, ${s}%, ${l}%)`,
-						cLeft: `hsl(${(h + 90) % 360}, ${s}%, ${Math.max(0, l - 20)}%)`,
-						cBottom: `hsl(${(h + 180) % 360}, ${s}%, ${Math.max(0, l - 75)}%)`,
-						cRight: `hsl(${(h + 270) % 360}, ${s}%, ${Math.max(0, l - 90)}%)`
-					};
-				}}
-				{@const fc = getFrameColors(frameColor)}
+					<!-- STATIC FRAME COLORS (or Dynamic Frame) -->
+					{@const getFrameColors = (base) => {
+						if (!useFrameColor)
+							return { cTop: '#ffffff', cLeft: '#cccccc', cBottom: '#444444', cRight: '#1a1a1a' };
+						const hsl = getHslFromHex(base);
+						const h = hsl.h;
+						const s = hsl.s;
+						const l = Math.max(0, Math.min(100, hsl.l));
 
-				{@const cTop = fc.cTop}
-				{@const cLeft = fc.cLeft}
-				{@const cBottom = fc.cBottom}
-				{@const cRight = fc.cRight}
+						return {
+							cTop: `hsl(${h}, ${s}%, ${l}%)`,
+							cLeft: `hsl(${(h + 90) % 360}, ${s}%, ${Math.max(0, l - 20)}%)`,
+							cBottom: `hsl(${(h + 180) % 360}, ${s}%, ${Math.max(0, l - 75)}%)`,
+							cRight: `hsl(${(h + 270) % 360}, ${s}%, ${Math.max(0, l - 90)}%)`
+						};
+					}}
+					{@const fc = getFrameColors(frameColor)}
 
-				<!-- DYNAMIC SKY (Rect Only) -->
-				{@const cCenter = manualColor}
+					{@const cTop = fc.cTop}
+					{@const cLeft = fc.cLeft}
+					{@const cBottom = fc.cBottom}
+					{@const cRight = fc.cRight}
 
-				{@const finalX = posX + (scaleX === -1 ? baseTileWidth : 0)}
-				{@const finalY = posY + (scaleY === -1 ? baseTileHeight : 0)}
+					<!-- DYNAMIC SKY (Rect Only) -->
+					{@const cCenter = manualColor}
 
-				// Correction for Mirroring: // If flipped, we swap the visual colors so the apparent light
-				source (Top-Left) stays constant.
-				{@const visualCTop = scaleY === -1 ? cBottom : cTop}
-				{@const visualCBottom = scaleY === -1 ? cTop : cBottom}
-				{@const visualCLeft = scaleX === -1 ? cRight : cLeft}
-				{@const visualCRight = scaleX === -1 ? cLeft : cRight}
+					{@const finalX = posX + (scaleX === -1 ? baseTileWidth : 0)}
+					{@const finalY = posY + (scaleY === -1 ? baseTileHeight : 0)}
 
-				<g
-					transform="translate({finalX}, {finalY}) scale({scaleX}, {scaleY}) rotate({rotation} {baseTileWidth /
-						2} {baseTileHeight / 2}) scale({scale})"
-				>
-					<!-- Surrounding Shapes FIRST (Behind) -->
-					<!-- Use the corrected 'visual' colors for the geometric paths -->
-					<path d={p_bottom} fill={visualCBottom} id="Bottom" />
-					<path d={p_top} fill={visualCTop} id="Top" />
-					<path d={p_left} fill={visualCLeft} id="Left" />
-					<path d={p_right} fill={visualCRight} id="Right" />
+					// Correction for Mirroring: // If flipped, we swap the visual colors so the apparent
+					light source (Top-Left) stays constant.
+					{@const visualCTop = scaleY === -1 ? cBottom : cTop}
+					{@const visualCBottom = scaleY === -1 ? cTop : cBottom}
+					{@const visualCLeft = scaleX === -1 ? cRight : cLeft}
+					{@const visualCRight = scaleX === -1 ? cLeft : cRight}
 
-					<!-- Rect LAST (On Top) -->
-					<rect fill={cCenter} x={x_rect_L} y={y_rect_T} width={rect_W} height={rect_H} />
-				</g>
+					<g
+						transform="translate({finalX}, {finalY}) scale({scaleX}, {scaleY}) rotate({rotation} {baseTileWidth /
+							2} {baseTileHeight / 2}) scale({scale})"
+					>
+						<!-- Surrounding Shapes FIRST (Behind) -->
+						<!-- Use the corrected 'visual' colors for the geometric paths -->
+						<path d={p_bottom} fill={visualCBottom} id="Bottom" />
+						<path d={p_top} fill={visualCTop} id="Top" />
+						<path d={p_left} fill={visualCLeft} id="Left" />
+						<path d={p_right} fill={visualCRight} id="Right" />
+
+						<!-- Rect LAST (On Top) -->
+						<rect fill={cCenter} x={x_rect_L} y={y_rect_T} width={rect_W} height={rect_H} />
+					</g>
+				{/each}
 			{/each}
-		{/each}
+		</g>
 	</svg>
 </div>
 

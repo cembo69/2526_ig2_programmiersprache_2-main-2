@@ -4,6 +4,8 @@
 	import { slide } from 'svelte/transition';
 	import Pattern3 from '$lib/components/3_PatternVSC.svelte';
 	import Pattern4 from '$lib/components/4_PatternAdvanced.svelte';
+	import Pattern5 from '$lib/components/5_PatternDiagonal.svelte';
+	import Pattern6 from '$lib/components/6_PatternWarp.svelte';
 
 	let patterns = [
 		{
@@ -14,7 +16,17 @@
 		{
 			name: 'Pattern Advanced',
 			component: Pattern4,
-			description: 'Advanced VSC Pattern with high density (35 tiles) by default.'
+			description: 'Advanced VSC Pattern with Warp Distortion.'
+		},
+		{
+			name: 'Pattern Diagonal',
+			component: Pattern5,
+			description: 'Standard VSC Pattern tilted by 45 degrees.'
+		},
+		{
+			name: 'Pattern Warp',
+			component: Pattern6,
+			description: 'Grid with sine wave distortion (Warp).'
 		}
 	];
 

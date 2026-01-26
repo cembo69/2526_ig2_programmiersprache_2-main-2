@@ -6,20 +6,23 @@
 	const baseTileWidth = 703.8;
 	const baseTileHeight = 702;
 
-	let tileCount = $state(5);
+	let tileCount = $state(40);
 	let tileCountX = $derived(tileCount);
 	let tileCountY = $derived(tileCount);
-	let offset = $state(10);
+	let offset = $state(40);
 	let offsetX = $derived(offset);
 	let offsetY = $derived(offset);
 
 	// New "Exciting" Controls
 	let rotation = $state(180);
 	const scale = 1;
-	const meshTightness = 0; // 0 = Original Look (Fixed)
+	const meshTightness = 0;
+
+	// Advanced Distortion Controls
+	let warpAmount = $state(15);
 
 	// Dynamic Colors (Hue/Sat Based Shadow System)
-	// (Simplified: Removed dynamic sky logic)
+	// (Simplified)
 
 	// Manual Color Override
 	let useManualColor = $state(true);
@@ -223,11 +226,8 @@
 				<!-- STATIC FRAME COLORS (or Dynamic Frame) -->
 				{@const getFrameColors = (base) => {
 					if (!useFrameColor)
-						return { cTop: '#ffffff', cLeft: '#cccccc', cBottom: '#444444', cRight: '#1a1a1a' };
+						return { cTop: '#ffffff', cLeft: '#cccccc', cBottom: '#333333', cRight: '#000000' };
 					const hsl = getHslFromHex(base);
-					// Tetradic Rotation (90deg steps)
-					// Plus standardized Lightness steps to preserve 3D form relative to input
-					// We clamp lightness to ensure visibility
 					const h = hsl.h;
 					const s = hsl.s;
 					const l = Math.max(0, Math.min(100, hsl.l));
@@ -249,8 +249,13 @@
 				<!-- DYNAMIC SKY (Rect Only) -->
 				{@const cCenter = manualColor}
 
-				{@const finalX = posX + (scaleX === -1 ? baseTileWidth : 0)}
-				{@const finalY = posY + (scaleY === -1 ? baseTileHeight : 0)}
+				<!-- ADVANCED: Apply Warp -->
+				<!-- Warp: Sine wave distortion based on position -->
+				{@const warpX = Math.sin(xi * 0.5) * warpAmount * 10}
+				{@const warpY = Math.cos(yi * 0.5) * warpAmount * 10}
+
+				{@const finalX = posX + (scaleX === -1 ? baseTileWidth : 0) + warpX}
+				{@const finalY = posY + (scaleY === -1 ? baseTileHeight : 0) + warpY}
 
 				// Correction for Mirroring: // If flipped, we swap the visual colors so the apparent light
 				source (Top-Left) stays constant.
@@ -279,17 +284,20 @@
 </div>
 
 <div class="sidebar-right">
-	<Slider min={1} max={101} step={2} bind:value={tileCount} label="Tile Count" />
+	<Slider min={25} max={50} step={1} bind:value={tileCount} label="Tile Count" />
 	<hr />
-	<Slider min={10} max={200} bind:value={offset} label="Tile Offset" />
+	<Slider min={40} max={200} bind:value={offset} label="Tile Offset" />
 	<hr />
-	<Slider min={174} max={200} bind:value={rotation} label="Rotation (deg)" />
+	<Slider min={180} max={200} bind:value={rotation} label="Rotation (deg)" />
 	<hr />
 
 	<!-- Unified Colors -->
 	<!-- Hue/Sat are now automatic based on Time -->
 
 	<hr />
+	<Slider min={0} max={15} step={0.1} bind:value={warpAmount} label="Warp Distortion" />
+	<hr />
+
 	<details open>
 		<summary style="cursor: pointer; color: white; margin-bottom: 0.5rem;">Center Color</summary>
 		<div style="margin-top: 0.5rem;">
