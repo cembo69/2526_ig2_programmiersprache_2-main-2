@@ -6,7 +6,6 @@
 	import Pattern4 from '$lib/components/4_PatternAdvanced.svelte';
 	import Pattern5 from '$lib/components/5_PatternDiagonal.svelte';
 	import Pattern6 from '$lib/components/6_PatternWarp.svelte';
-	import Pattern7 from '$lib/components/7_PatternRadial.svelte';
 
 	let patterns = [
 		{
@@ -28,11 +27,6 @@
 			name: 'Pattern Warp',
 			component: Pattern6,
 			description: 'Grid with sine wave distortion (Warp).'
-		},
-		{
-			name: 'Pattern Radial',
-			component: Pattern7,
-			description: 'Concentric rings with spiral twist control.'
 		}
 	];
 

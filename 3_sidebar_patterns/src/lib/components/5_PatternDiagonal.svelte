@@ -16,6 +16,9 @@
 	// New "Exciting" Controls
 	let rotation = $state(180);
 	const scale = 1;
+	// Shear/Skew
+	let skew = $state(0);
+
 	const meshTightness = 0; // 0 = Original Look (Fixed)
 
 	// Dynamic Colors (Hue/Sat Based Shadow System)
@@ -237,13 +240,29 @@
 						const hsl = getHslFromHex(base);
 						const h = hsl.h;
 						const s = hsl.s;
-						const l = Math.max(0, Math.min(100, hsl.l));
+						const l = hsl.l;
+
+						// Guarantee 4 distinct lightness levels
+						// We define a spread (e.g. 15% per step)
+						// If base L is too low to support drops, we shift the whole range up.
+						// Target offsets: 0, -15, -30, -50
+
+						const maxDrop = 50;
+						let startL = l;
+
+						// If starting lightness is lower than the max drop + buffer, shift it up
+						// so distinctness is preserved.
+						if (startL < maxDrop + 10) {
+							startL = maxDrop + 10;
+						}
+						// Cap at 100
+						if (startL > 100) startL = 100;
 
 						return {
-							cTop: `hsl(${h}, ${s}%, ${l}%)`,
-							cLeft: `hsl(${(h + 90) % 360}, ${s}%, ${Math.max(0, l - 20)}%)`,
-							cBottom: `hsl(${(h + 180) % 360}, ${s}%, ${Math.max(0, l - 75)}%)`,
-							cRight: `hsl(${(h + 270) % 360}, ${s}%, ${Math.max(0, l - 90)}%)`
+							cTop: `hsl(${h}, ${s}%, ${startL}%)`,
+							cLeft: `hsl(${(h + 90) % 360}, ${s}%, ${Math.max(0, startL - 15)}%)`,
+							cBottom: `hsl(${(h + 180) % 360}, ${s}%, ${Math.max(0, startL - 30)}%)`,
+							cRight: `hsl(${(h + 270) % 360}, ${s}%, ${Math.max(0, startL - 50)}%)`
 						};
 					}}
 					{@const fc = getFrameColors(frameColor)}
@@ -256,11 +275,13 @@
 					<!-- DYNAMIC SKY (Rect Only) -->
 					{@const cCenter = manualColor}
 
+					{@const posX = calculatePosition(xi, renderCountX, baseTileWidth, offsetX)}
+					{@const posY = calculatePosition(yi, renderCountY, baseTileHeight, offsetY)}
+
 					{@const finalX = posX + (scaleX === -1 ? baseTileWidth : 0)}
 					{@const finalY = posY + (scaleY === -1 ? baseTileHeight : 0)}
 
-					// Correction for Mirroring: // If flipped, we swap the visual colors so the apparent
-					light source (Top-Left) stays constant.
+					<!-- Correction for Mirroring: If flipped, we swap the visual colors so the apparent light source (Top-Left) stays constant. -->
 					{@const visualCTop = scaleY === -1 ? cBottom : cTop}
 					{@const visualCBottom = scaleY === -1 ? cTop : cBottom}
 					{@const visualCLeft = scaleX === -1 ? cRight : cLeft}
@@ -268,7 +289,7 @@
 
 					<g
 						transform="translate({finalX}, {finalY}) scale({scaleX}, {scaleY}) rotate({rotation} {baseTileWidth /
-							2} {baseTileHeight / 2}) scale({scale})"
+							2} {baseTileHeight / 2}) scale({scale}) skewX({skew})"
 					>
 						<!-- Surrounding Shapes FIRST (Behind) -->
 						<!-- Use the corrected 'visual' colors for the geometric paths -->
@@ -292,6 +313,9 @@
 	<Slider min={10} max={200} bind:value={offset} label="Tile Offset" />
 	<hr />
 	<Slider min={174} max={200} bind:value={rotation} label="Rotation (deg)" />
+	<hr />
+	<hr />
+	<Slider min={-45} max={45} bind:value={skew} label="Shear (Skew)" />
 	<hr />
 
 	<!-- Unified Colors -->

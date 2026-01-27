@@ -1,255 +1,257 @@
 <script>
-	import { onMount, onDestroy } from 'svelte';
-	import * as THREE from 'three';
-	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-	import { converter, formatHex, clampChroma, parse } from 'culori';
-
-	import Slider from '$lib/ui/Slider.svelte';
+	import { onMount } from 'svelte';
+	import { converter, formatHex, parse, wcagContrast } from 'culori';
 
 	let { color = $bindable('#ffffff') } = $props();
 
-	// Conversions
-	const toOklch = converter('oklch');
+	// Converters
+	const toHsv = converter('hsv');
 	const toRgb = converter('rgb');
 
-	// Internal OKLCH state
-	let l = $state(0.7);
-	let c = $state(0.1);
-	let h = $state(219);
+	// Internal State (HSV)
+	let h = $state(0); // 0-360
+	let s = $state(0); // 0-1
+	let v = $state(1); // 0-1
+	let isDragging = $state(false);
 
-	// Canvas ref
-	let canvasContainer;
-	let canvas;
+	// DOM Elements
+	let areaRef;
+	let hueRef;
 
-	// Three.js variables
-	let renderer, scene, camera, controls;
-	let selectionMesh;
-	let pointsMesh;
-
-	// Track the last hex we generated to avoid feedback loops
-	let lastGeneratedHex = '';
-
-	// Update internal state when external color changes
+	// Update internal state when external color changes (and we are not dragging)
 	$effect(() => {
-		if (color && color !== lastGeneratedHex) {
-			const oklch = toOklch(color);
-			if (oklch) {
-				// Only update if significantly different
-				if (
-					Math.abs(oklch.l - l) > 0.01 ||
-					Math.abs(oklch.c - c) > 0.005 ||
-					Math.abs((oklch.h || 0) - h) > 1
-				) {
-					l = oklch.l;
-					c = oklch.c;
-					h = oklch.h || 0;
-					updateSelectionVisual();
-				}
+		if (!isDragging && color) {
+			const parsed = parse(color);
+			if (parsed) {
+				const hsv = toHsv(parsed);
+				// Check for NaN (grayscale colors have undefined hue)
+				if (!isNaN(hsv.h)) h = hsv.h;
+				s = hsv.s;
+				v = hsv.v;
 			}
 		}
 	});
 
-	// Update external color when internal state changes (Slider updates)
-	$effect(() => {
-		updateColor();
-	});
+	// Derived values for UI
+	let areaBackgroundColor = $derived(`hsl(${h}, 100%, 50%)`);
+	let thumbColor = $derived(color);
+	let textColor = $derived(wcagContrast(color, '#000000') > 4.5 ? '#000000' : '#ffffff');
 
-	function updateColor() {
-		// Create color object
-		const oklchColor = { mode: 'oklch', l, c, h };
-		// Clamp to displayable RGB if needed, or just format
-		const hex = formatHex(oklchColor);
-
-		if (hex !== color) {
-			lastGeneratedHex = hex;
-			color = hex;
-		}
-		updateSelectionVisual();
-	}
-
-	function updateSelectionVisual() {
-		if (selectionMesh) {
-			// Convert cylindrical to Cartesian
-			// y = L, x = C * cos(h), z = C * sin(h)
-			// Scale for visibility
-			const rad = h * (Math.PI / 180);
-			const x = c * Math.cos(rad) * 2; // Scale C
-			const z = c * Math.sin(rad) * 2;
-			const y = (l - 0.5) * 2; // Center L around 0
-
-			selectionMesh.position.set(x, y, z);
-			selectionMesh.material.color.set(color);
+	function updateColorFromState() {
+		const newHex = formatHex({ mode: 'hsv', h: h || 0, s, v });
+		if (newHex !== color) {
+			color = newHex;
 		}
 	}
 
-	// Initialize Three.js
-	onMount(() => {
-		const width = canvasContainer.offsetWidth;
-		const height = 300; // Fixed height for 3D view
+	// Interaction: Saturation / Value Area
+	function handleAreaPointer(e) {
+		if (!areaRef) return;
+		const rect = areaRef.getBoundingClientRect();
+		const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+		const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
 
-		// Scene
-		scene = new THREE.Scene();
-		scene.background = new THREE.Color(0x111111);
+		s = x;
+		v = 1 - y;
+		updateColorFromState();
+	}
 
-		// Camera
-		camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-		camera.position.set(2.5, 1.5, 2.5);
+	function onAreaPointerDown(e) {
+		isDragging = true;
+		areaRef.setPointerCapture(e.pointerId);
+		handleAreaPointer(e);
+	}
 
-		// Renderer
-		renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-		renderer.setSize(width, height);
-		renderer.setPixelRatio(window.devicePixelRatio);
-
-		// Controls
-		controls = new OrbitControls(camera, canvas);
-		controls.enableDamping = true;
-		controls.autoRotate = true;
-		controls.autoRotateSpeed = 1.0;
-
-		// 1. Generate RGB Gamut Cloud
-		const pointsGeometry = new THREE.BufferGeometry();
-		const pointsSystem = generateGamutPoints();
-		scene.add(pointsSystem);
-		pointsMesh = pointsSystem;
-
-		// 2. Selection Sphere
-		const sphereGeo = new THREE.SphereGeometry(0.05, 16, 16);
-		const sphereMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-		selectionMesh = new THREE.Mesh(sphereGeo, sphereMat);
-		scene.add(selectionMesh);
-
-		// 3. Axes / Grid (Optional)
-		const axesHelper = new THREE.AxesHelper(1);
-		scene.add(axesHelper);
-
-		// Initial update
-		updateSelectionVisual();
-
-		// Animation Loop
-		let frameId;
-		function animate() {
-			frameId = requestAnimationFrame(animate);
-			controls.update();
-			renderer.render(scene, camera);
+	function onAreaPointerMove(e) {
+		if (isDragging && areaRef.hasPointerCapture(e.pointerId)) {
+			handleAreaPointer(e);
 		}
-		animate();
+	}
 
-		// Resize handler
-		const resizeObserver = new ResizeObserver(() => {
-			const w = canvasContainer.clientWidth;
-			const h = 300;
-			camera.aspect = w / h;
-			camera.updateProjectionMatrix();
-			renderer.setSize(w, h);
-		});
-		resizeObserver.observe(canvasContainer);
+	function onAreaPointerUp(e) {
+		isDragging = false;
+		areaRef.releasePointerCapture(e.pointerId);
+	}
 
-		return () => {
-			cancelAnimationFrame(frameId);
-			renderer.dispose();
-			resizeObserver.disconnect();
-		};
-	});
+	// Interaction: Hue Slider
+	function handleHuePointer(e) {
+		if (!hueRef) return;
+		const rect = hueRef.getBoundingClientRect();
+		const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 
-	function generateGamutPoints() {
-		// We iterate reasonable steps of RGB, convert to OKLCH, and plot
-		const positions = [];
-		const colors = [];
-		const steps = 15;
+		h = x * 360;
+		updateColorFromState();
+	}
 
-		for (let r = 0; r <= 1; r += 1 / steps) {
-			for (let g = 0; g <= 1; g += 1 / steps) {
-				for (let b = 0; b <= 1; b += 1 / steps) {
-					// Convert RGB -> OKLCH
-					const rgb = { mode: 'rgb', r, g, b };
-					const oklch = toOklch(rgb);
+	function onHuePointerDown(e) {
+		isDragging = true;
+		hueRef.setPointerCapture(e.pointerId);
+		handleHuePointer(e);
+	}
 
-					if (oklch) {
-						// Cylindrical to Cartesian
-						// Scale C and L to fit nicely in roughly -1..1 box
-						const rad = (oklch.h || 0) * (Math.PI / 180);
-						const C = oklch.c;
-						const L = oklch.l;
-
-						const x = C * Math.cos(rad) * 2;
-						const z = C * Math.sin(rad) * 2;
-						const y = (L - 0.5) * 2;
-
-						positions.push(x, y, z);
-						colors.push(r, g, b);
-					}
-				}
-			}
+	function onHuePointerMove(e) {
+		if (isDragging && hueRef.hasPointerCapture(e.pointerId)) {
+			handleHuePointer(e);
 		}
+	}
 
-		const geometry = new THREE.BufferGeometry();
-		geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-		geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-
-		const material = new THREE.PointsMaterial({
-			size: 0.03,
-			vertexColors: true,
-			transparent: true,
-			opacity: 0.8
-		});
-		return new THREE.Points(geometry, material);
+	function onHuePointerUp(e) {
+		isDragging = false;
+		hueRef.releasePointerCapture(e.pointerId);
 	}
 </script>
 
-<div class="picker-container">
-	<div class="canvas-wrapper" bind:this={canvasContainer}>
-		<canvas bind:this={canvas}></canvas>
+<div class="color-picker">
+	<!-- Saturation/Value Area -->
+	<div
+		class="area"
+		bind:this={areaRef}
+		style="background-color: {areaBackgroundColor};"
+		onpointerdown={onAreaPointerDown}
+		onpointermove={onAreaPointerMove}
+		onpointerup={onAreaPointerUp}
+	>
+		<div class="area-gradient white"></div>
+		<div class="area-gradient black"></div>
+		<div
+			class="thumb"
+			style="left: {s * 100}%; top: {(1 - v) *
+				100}%; background-color: {thumbColor}; border-color: {textColor}"
+		></div>
 	</div>
 
-	<div class="controls">
-		<Slider
-			bind:value={l}
-			min={0}
-			max={1}
-			step={0.01}
-			label="Lightness ({(l * 100).toFixed(0)}%)"
-		/>
+	<!-- Hue Slider -->
+	<div
+		class="hue-slider"
+		bind:this={hueRef}
+		onpointerdown={onHuePointerDown}
+		onpointermove={onHuePointerMove}
+		onpointerup={onHuePointerUp}
+	>
+		<div class="hue-thumb" style="left: {(h / 360) * 100}%;"></div>
+	</div>
 
-		<Slider bind:value={c} min={0} max={0.4} step={0.001} label="Chroma ({c.toFixed(3)})" />
-
-		<Slider bind:value={h} min={0} max={360} step={1} label="Hue ({h.toFixed(0)}°)" />
-
-		<div class="hex-row">
-			<span>{color}</span>
-			<div class="swatch" style="background-color: {color};"></div>
-		</div>
+	<!-- Text Input -->
+	<div class="input-row">
+		<div class="swatch" style="background-color: {color}"></div>
+		<input type="text" bind:value={color} spellcheck="false" />
 	</div>
 </div>
 
 <style>
-	.picker-container {
+	.color-picker {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
-		background: #222;
-		padding: 1rem;
-		border-radius: 8px;
-		color: white;
-		font-family: sans-serif;
-	}
-	.canvas-wrapper {
+		gap: 12px;
+		background: #1e1e1e;
+		padding: 12px;
+		border-radius: 12px;
+		border: 1px solid #333;
 		width: 100%;
-		height: 300px;
-		background: #000;
-		border-radius: 4px;
-		overflow: hidden;
+		max-width: 300px;
+		user-select: none;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 	}
-	.hex-row {
+
+	/* Saturation/Value Area */
+	.area {
+		position: relative;
+		width: 100%;
+		height: 180px;
+		border-radius: 8px;
+		overflow: hidden;
+		cursor: crosshair;
+		touch-action: none;
+	}
+
+	.area-gradient {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		pointer-events: none;
+	}
+
+	.area-gradient.white {
+		background: linear-gradient(to right, #fff, rgba(255, 255, 255, 0));
+	}
+
+	.area-gradient.black {
+		background: linear-gradient(to bottom, transparent, #000);
+	}
+
+	.thumb {
+		position: absolute;
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		border: 2px solid white;
+		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+		transform: translate(-50%, -50%);
+		pointer-events: none;
+	}
+
+	/* Hue Slider */
+	.hue-slider {
+		position: relative;
+		width: 100%;
+		height: 16px;
+		border-radius: 8px;
+		background: linear-gradient(
+			to right,
+			#f00 0%,
+			#ff0 17%,
+			#0f0 33%,
+			#0ff 50%,
+			#00f 67%,
+			#f0f 83%,
+			#f00 100%
+		);
+		cursor: pointer;
+		touch-action: none;
+	}
+
+	.hue-thumb {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		width: 8px;
+		background: white;
+		border-radius: 4px;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+		transform: translateX(-50%);
+		pointer-events: none;
+		border: 1px solid rgba(0, 0, 0, 0.1);
+	}
+
+	/* Input Row */
+	.input-row {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		font-family: monospace;
-		font-size: 1.1rem;
+		gap: 8px;
 	}
+
 	.swatch {
-		width: 40px;
+		width: 24px;
 		height: 24px;
-		border-radius: 4px;
+		border-radius: 6px;
 		border: 1px solid #444;
+	}
+
+	input[type='text'] {
+		flex: 1;
+		background: #2a2a2a;
+		border: 1px solid #444;
+		color: #eee;
+		padding: 4px 8px;
+		border-radius: 6px;
+		font-family: monospace;
+		font-size: 14px;
+		outline: none;
+	}
+
+	input[type='text']:focus {
+		border-color: #666;
 	}
 </style>
