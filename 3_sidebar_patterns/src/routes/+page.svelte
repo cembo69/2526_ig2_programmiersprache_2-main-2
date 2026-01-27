@@ -2,10 +2,15 @@
 	import Header from '$lib/components/Header.svelte';
 
 	import { slide } from 'svelte/transition';
+	
 	import Pattern3 from '$lib/components/3_PatternVSC.svelte';
 	import Pattern4 from '$lib/components/4_PatternAdvanced.svelte';
 	import Pattern5 from '$lib/components/5_PatternDiagonal.svelte';
 	import Pattern6 from '$lib/components/6_PatternWarp.svelte';
+
+	import Pattern1 from '$lib/components/1_PatternPolygonReactive.svelte';
+	import Pattern2 from '$lib/components/2_PatternPolygonReactiveOffsetSize.svelte';
+	import PatternGeometric from '$lib/components/3_PatternGeometricFlow.svelte';
 
 	let patterns = [
 		{
@@ -27,6 +32,12 @@
 			name: 'Pattern Warp',
 			component: Pattern6,
 			description: 'Grid with sine wave distortion (Warp).'
+		},
+		{
+			name: 'Geometric Flow (Rhombus)',
+			component: PatternGeometric,
+			description:
+				'An intricate interlocking pattern created exclusively from parallelograms in 4 colors.'
 		}
 	];
 
