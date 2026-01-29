@@ -10,6 +10,7 @@
 	import Pattern1 from '$lib/components/1_PatternPolygonReactive.svelte';
 	import Pattern2 from '$lib/components/2_PatternPolygonReactiveOffsetSize.svelte';
 	import PatternSVG from '$lib/components/7_PatternSVG.svelte';
+	import PatternGrundform from '$lib/components/8_PatternGrundform.svelte';
 
 	let patterns = [
 		{
@@ -31,6 +32,11 @@
 			name: 'Pattern 3',
 			component: PatternSVG,
 			description: 'Pattern based on custom SVG path.'
+		},
+		{
+			name: 'Pattern 4',
+			component: PatternGrundform,
+			description: 'Pattern based on the Grundform from vorlage.'
 		}
 	];
 

@@ -1,7 +1,7 @@
 <script>
 	import Slider from '$lib/ui/Slider.svelte';
 	import ThemeSelector from '$lib/ui/ThemeSelector.svelte';
-	import OklchColorPicker from './OklchColorPicker.svelte';
+	import ColorPickerHSV from '$lib/ui/ColorPicker/ColorPickerHSV.svelte';
 
 	// Reduced dimensions for a single unit
 	const baseTileWidth = 703.8;
@@ -32,6 +32,11 @@
 	// Frame Color Override
 	let useFrameColor = $state(true);
 	let frameColor = $state('#ffffff');
+
+	// Sync frameColor with manualColor
+	$effect(() => {
+		frameColor = manualColor;
+	});
 
 	// HSL Helper Functions
 	function hexToRgb(hex) {
@@ -93,10 +98,10 @@
 		return rgbToHsl(rgb.r, rgb.g, rgb.b);
 	}
 
-    function darkenHex(hex, amount) {
-        const h = getHslFromHex(hex);
-        return `hsl(${h.h}, ${h.s}%, ${Math.max(0, h.l - amount)}%)`;
-    }
+	function darkenHex(hex, amount) {
+		const h = getHslFromHex(hex);
+		return `hsl(${h.h}, ${h.s}%, ${Math.max(8, h.l - amount)}%)`;
+	}
 
 	// Dynamic ViewBox calculation?
 	// User used fixed -500 -500 1000 1000 in snippet, but the tiles here are huge (700px).
@@ -242,7 +247,7 @@
 					<!-- STATIC FRAME COLORS (or Dynamic Frame) -->
 					{@const getFrameColors = (base) => {
 						if (!useFrameColor)
-							return { cTop: '#ffffff', cLeft: '#cccccc', cBottom: '#444444', cRight: '#1a1a1a' };
+							return { cTop: '#ffffff', cLeft: '#cccccc', cBottom: '#1a1a1a', cRight: '#0d0d0d' };
 						
                         // Nordlichter Override
                         if (base.toUpperCase() === '#0D1B2A') {
@@ -308,10 +313,10 @@
 
 						return {
 							cTop: `hsl(${h}, ${s}%, ${startL}%)`,
-							cLeft: `hsl(${(h + 90) % 360}, ${s}%, ${Math.max(0, startL - 15)}%)`,
-							cBottom: `hsl(${(h + 180) % 360}, ${s}%, ${Math.max(0, startL - 30)}%)`,
-							cRight: `hsl(${(h + 270) % 360}, ${s}%, ${Math.max(0, startL - 50)}%)`,
-                            cCenter: `hsl(${h}, ${s}%, ${Math.max(0, Math.max(0, startL - 50) - 10)}%)`
+							cLeft: `hsl(${(h + 90) % 360}, ${s}%, ${Math.max(8, startL - 15)}%)`,
+							cBottom: `hsl(${(h + 180) % 360}, ${s}%, ${Math.max(8, startL - 30)}%)`,
+							cRight: `hsl(${(h + 270) % 360}, ${s}%, ${Math.max(8, startL - 50)}%)`,
+                            cCenter: `hsl(${h}, ${s}%, ${Math.max(8, Math.max(8, startL - 50) - 10)}%)`
 						};
 					}}
                     
@@ -383,7 +388,7 @@
 	<details open>
 		<summary style="cursor: pointer; color: white; margin-bottom: 0.5rem;">Center Color</summary>
 		<div style="margin-top: 0.5rem;">
-			<OklchColorPicker bind:color={manualColor} />
+			<ColorPickerHSV bind:color={manualColor} width={250} />
 		</div>
 	</details>
 
@@ -391,7 +396,7 @@
 	<details>
 		<summary style="cursor: pointer; color: white; margin-bottom: 0.5rem;">Frame Color</summary>
 		<div style="margin-top: 0.5rem;">
-			<OklchColorPicker bind:color={frameColor} />
+			<ColorPickerHSV bind:color={frameColor} width={250} />
 		</div>
 	</details>
 </div>

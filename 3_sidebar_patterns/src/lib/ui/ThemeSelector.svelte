@@ -9,22 +9,24 @@
 		{ name: 'Miami', color: '#FF91AF' }
 	];
     
-    function handleChange(e) {
-        const theme = themes.find(t => t.name === e.target.value);
-        if (theme) {
-            color = theme.color;
-        }
+    function selectTheme(themeColor) {
+        color = themeColor;
     }
 </script>
 
 <div class="selector">
     <div class="label">{label}</div>
-    <select onchange={handleChange}>
-        <option disabled selected value="">Select Theme...</option>
+    <div class="theme-buttons">
         {#each themes as theme}
-            <option value={theme.name}>{theme.name}</option>
+            <button 
+                class="theme-button" 
+                class:active={color?.toUpperCase() === theme.color.toUpperCase()}
+                onclick={() => selectTheme(theme.color)}
+            >
+                {theme.name}
+            </button>
         {/each}
-    </select>
+    </div>
 </div>
 
 <style>
@@ -35,26 +37,36 @@
     .label {
         font-size: 0.75rem;
         margin-top: 0;
-        margin-bottom: 0.3rem;
+        margin-bottom: 0.5rem;
         color: #ccc;
     }
-    select {
+    .theme-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+    .theme-button {
         width: 100%;
-        height: 24px;
-        background: #2a2a2a;
-        color: white;
-        border: 1px solid #444;
+        height: 28px;
+        background: transparent;
+        border: none;
         border-radius: 4px;
-        font-size: 0.8rem;
-        padding: 0 5px;
+        font-size: 0.85rem;
+        padding: 0 10px;
         outline: none;
         cursor: pointer;
+        color: #999;
+        transition: all 0.15s ease;
+        font-weight: 400;
+        text-align: left;
     }
-    select:focus {
-        border-color: #666;
+    .theme-button:hover {
+        color: #ccc;
+        background: #333;
     }
-    option {
-        background: #2a2a2a;
+    .theme-button.active {
         color: white;
+        background: #444;
+        font-weight: 500;
     }
 </style>

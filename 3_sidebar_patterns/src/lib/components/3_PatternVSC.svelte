@@ -1,7 +1,7 @@
 <script>
 	import Slider from '$lib/ui/Slider.svelte';
 	import ThemeSelector from '$lib/ui/ThemeSelector.svelte';
-	import OklchColorPicker from './OklchColorPicker.svelte';
+	import ColorPickerHSV from '$lib/ui/ColorPicker/ColorPickerHSV.svelte';
 
 	// Reduced dimensions for a single unit
 	const baseTileWidth = 703.8;
@@ -29,6 +29,11 @@
 	// Frame Color Override
 	let useFrameColor = $state(true);
 	let frameColor = $state('#ffffff');
+
+	// Sync frameColor with manualColor
+	$effect(() => {
+		frameColor = manualColor;
+	});
 
 	// HSL Helper Functions
 	function hexToRgb(hex) {
@@ -92,7 +97,7 @@
     
     function darkenHex(hex, amount) {
         const h = getHslFromHex(hex);
-        return `hsl(${h.h}, ${h.s}%, ${Math.max(0, h.l - amount)}%)`;
+        return `hsl(${h.h}, ${h.s}%, ${Math.max(8, h.l - amount)}%)`;
     }
 
 	// Dynamic ViewBox calculation?
@@ -229,7 +234,7 @@
 				<!-- STATIC FRAME COLORS (or Dynamic Frame) -->
 				{@const getFrameColors = (base) => {
 					if (!useFrameColor)
-						return { cTop: '#ffffff', cLeft: '#cccccc', cBottom: '#444444', cRight: '#1a1a1a', cCenter: '#000000' };
+						return { cTop: '#ffffff', cLeft: '#cccccc', cBottom: '#1a1a1a', cRight: '#0d0d0d', cCenter: '#141414' };
 					
                     // Nordlichter Override
                     if (base.toUpperCase() === '#0D1B2A') { 
@@ -247,9 +252,9 @@
                          return {
                             cTop: '#4CAF50',     // Green
                             cLeft: '#FFFFFF',    // White
-                            cBottom: '#333333',  // Dark (Darkest)
+                            cBottom: '#2a5f2a',  // Dark Green (mindestens 8% Helligkeit)
                             cRight: '#1982C4',   // Blue
-                            cCenter: darkenHex('#333333', 10)
+                            cCenter: '#1a3d1a'
                          };
                     }
                     
@@ -258,9 +263,9 @@
                          return {
                             cTop: '#D32F2F',     // Red
                             cLeft: '#F2F2F2',    // Cloud White
-                            cBottom: '#2D3436',  // Obsidian (Darkest)
+                            cBottom: '#4a2424',  // Dark Red (mindestens 8% Helligkeit)
                             cRight: '#FFD700',   // Gold
-                            cCenter: darkenHex('#2D3436', 10)
+                            cCenter: '#2d1515'
                          };
                     }
 
@@ -269,9 +274,9 @@
                          return {
                             cTop: '#FF91AF',     // Flamingo
                             cLeft: '#F2F2F2',    // Cloud White
-                            cBottom: '#00E5FF',  // Electric Blue (Darkest L=50)
+                            cBottom: '#1a4a4d',  // Dark Teal (mindestens 8% Helligkeit)
                             cRight: '#FFB347',   // Sunset Orange
-                            cCenter: darkenHex('#00E5FF', 10) 
+                            cCenter: '#143639' 
                          };
                     }
 
@@ -285,10 +290,10 @@
 
 					return {
 						cTop: `hsl(${h}, ${s}%, ${l}%)`,
-						cLeft: `hsl(${(h + 90) % 360}, ${s}%, ${Math.max(0, l - 20)}%)`,
-						cBottom: `hsl(${(h + 180) % 360}, ${s}%, ${Math.max(0, l - 75)}%)`,
-						cRight: `hsl(${(h + 270) % 360}, ${s}%, ${Math.max(0, l - 90)}%)`,
-                        cCenter: `hsl(${h}, ${s}%, ${Math.max(0, l - 100)}%)`
+						cLeft: `hsl(${(h + 90) % 360}, ${s}%, ${Math.max(8, l - 20)}%)`,
+						cBottom: `hsl(${(h + 180) % 360}, ${s}%, ${Math.max(8, l - 75)}%)`,
+						cRight: `hsl(${(h + 270) % 360}, ${s}%, ${Math.max(8, l - 90)}%)`,
+                        cCenter: `hsl(${h}, ${s}%, ${Math.max(8, l - 100)}%)`
 					};
 				}}
                 
@@ -350,5 +355,5 @@
 	<hr />
 	<ThemeSelector bind:color={manualColor} />
 	<hr />
-	<OklchColorPicker bind:color={manualColor} />
+	<ColorPickerHSV bind:color={manualColor} width={250} />
 </div>

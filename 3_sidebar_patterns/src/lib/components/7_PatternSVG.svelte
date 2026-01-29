@@ -1,7 +1,7 @@
 <script>
 	import Slider from '$lib/ui/Slider.svelte';
 	import ThemeSelector from '$lib/ui/ThemeSelector.svelte';
-	import OklchColorPicker from './OklchColorPicker.svelte';
+	import ColorPickerHSV from '$lib/ui/ColorPicker/ColorPickerHSV.svelte';
 
 	// Reduced dimensions for a single unit (matching Pattern Basic)
 	const baseTileWidth = 703.8;
@@ -269,7 +269,7 @@
 						{@const s = fc.s} 
 						{@const baseL = fc.l}
 						// Lighting: 6 steps
-						{@const l = Math.max(0, Math.min(100, baseL + lightingOffsets[i]))}
+						{@const l = Math.max(8, Math.min(100, baseL + lightingOffsets[i]))}
 						
                         {@const color = isNordlichter
                             ? nordlichterPalette[i % 4] // Cycle through palette
