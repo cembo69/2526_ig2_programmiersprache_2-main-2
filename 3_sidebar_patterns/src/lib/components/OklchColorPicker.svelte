@@ -1,36 +1,101 @@
 <script>
 	import { onMount } from 'svelte';
 	import { converter, formatHex, parse, wcagContrast } from 'culori';
+    import NumberSpinner from "svelte-number-spinner";
 
 	let { color = $bindable('#ffffff') } = $props();
 
 	// Converters
 	const toHsv = converter('hsv');
+	const toHsl = converter('hsl');
 	const toRgb = converter('rgb');
 
-	// Internal State (HSV)
+	// Internal State (HSV) - Initialize from props
 	let h = $state(0); // 0-360
 	let s = $state(0); // 0-1
 	let v = $state(1); // 0-1
 	let isDragging = $state(false);
+    
+    // Internal State (HSL for Inputs) - Initialize from props
+    let hsl_h = $state(0);
+    let hsl_s = $state(0);
+    let hsl_l = $state(0);
+
+    let spinnerUpdating = false;
+    
+    // Initialize HSL values from color on mount
+    if (color) {
+        const parsed = parse(color);
+        if (parsed) {
+            const hsl = toHsl(parsed);
+            hsl_h = isNaN(hsl.h) ? 0 : Math.round(hsl.h);
+            hsl_s = Math.round(hsl.s * 100);
+            hsl_l = Math.round(hsl.l * 100);
+        }
+    }
 
 	// DOM Elements
 	let areaRef;
 	let hueRef;
 
-	// Update internal state when external color changes (and we are not dragging)
+    // Sync Color -> Visual State (HSV)
 	$effect(() => {
-		if (!isDragging && color) {
+		if (color) {
 			const parsed = parse(color);
 			if (parsed) {
 				const hsv = toHsv(parsed);
-				// Check for NaN (grayscale colors have undefined hue)
 				if (!isNaN(hsv.h)) h = hsv.h;
 				s = hsv.s;
 				v = hsv.v;
 			}
 		}
 	});
+
+    // Sync Color -> HSL Spinners
+    // We only sync FROM color TO spinners if the update didn't originate from the spinners
+    $effect(() => {
+        // Dependency on color
+        if (color) {
+             if (spinnerUpdating) {
+                 // The color changed because of the spinner.
+                 // We DO NOT want to re-calculate HSL from color, 
+                 // because that causes rounding errors and jumps (e.g. S changes when L changes).
+                 // We trust the spinner values are already "correct" for the user's intent.
+                 return; 
+             }
+
+            const parsed = parse(color);
+            if (parsed) {
+                const hsl = toHsl(parsed);
+                hsl_h = isNaN(hsl.h) ? 0 : Math.round(hsl.h);
+                hsl_s = Math.round(hsl.s * 100);
+                hsl_l = Math.round(hsl.l * 100);
+            }
+        }
+    });
+
+    // Called when a spinner finishes changing (on:change)
+    // We use a flag to tell the effect system "This is a spinner update"
+    function commitSpinnerChange(e) {
+        spinnerUpdating = true;
+        
+        // Calculate new color based on CURRENT spinner values
+        const newColor = formatHex({ mode: 'hsl', h: hsl_h, s: hsl_s / 100, l: hsl_l / 100 });
+        
+        if (newColor && newColor !== color) {
+            color = newColor;
+        }
+        
+        // Force blur on the active element to "deselect" it
+        if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+
+        // Reset the flag after a delay that is surely after the effect runs
+        setTimeout(() => {
+            spinnerUpdating = false;
+        }, 50);
+    }
 
 	// Derived values for UI
 	let areaBackgroundColor = $derived(`hsl(${h}, 100%, 50%)`);
@@ -136,6 +201,28 @@
 		<div class="swatch" style="background-color: {color}"></div>
 		<input type="text" bind:value={color} spellcheck="false" />
 	</div>
+    
+    <!-- HSL Inputs -->
+    <div class="hsl-inputs">
+        <div class="field">
+            <label>H</label>
+            <div class="spinner-wrapper">
+                <NumberSpinner bind:value={hsl_h} min={0} max={360} circular={true} on:change={commitSpinnerChange} speed={1} />
+            </div>
+        </div>
+        <div class="field">
+            <label>S</label>
+            <div class="spinner-wrapper">
+                <NumberSpinner bind:value={hsl_s} min={0} max={100} on:change={commitSpinnerChange} speed={0.5} />
+            </div>
+        </div>
+        <div class="field">
+            <label>L</label>
+            <div class="spinner-wrapper">
+                <NumberSpinner bind:value={hsl_l} min={0} max={100} on:change={commitSpinnerChange} speed={0.5} />
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -152,6 +239,55 @@
 		user-select: none;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 	}
+    
+    .hsl-inputs {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .field {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex: 1;
+        background: #2a2a2a;
+        padding: 2px 4px;
+        border-radius: 4px;
+        border: 1px solid #444;
+    }
+    
+    .field label {
+        color: #888;
+        font-size: 11px;
+        font-weight: bold;
+    }
+
+    .spinner-wrapper {
+        flex: 1;
+        /* Ensure spinner fits */
+        min-width: 0; 
+    }
+
+    /* Target inputs within the spinner */
+    :global(.spinner-wrapper input) {
+        width: 100% !important;
+        background: transparent !important;
+        border: none !important;
+        color: #eee !important;
+        font-family: monospace;
+        font-size: 12px;
+        outline: none;
+        padding: 0 !important;
+        text-align: left;
+        cursor: ew-resize !important; /* Indicate drag behavior */
+        pointer-events: auto; /* Ensure events are caught */
+    }
+    
+    /* Disable text selection/caret which makes it feel like an input */
+    :global(.spinner-wrapper input:focus) {
+        caret-color: transparent; /* Hide caret */
+        user-select: none; /* No text selection */
+    }
 
 	/* Saturation/Value Area */
 	.area {

@@ -6,11 +6,10 @@
 	import Pattern3 from '$lib/components/3_PatternVSC.svelte';
 	import Pattern4 from '$lib/components/4_PatternAdvanced.svelte';
 	import Pattern5 from '$lib/components/5_PatternDiagonal.svelte';
-	import Pattern6 from '$lib/components/6_PatternWarp.svelte';
 
 	import Pattern1 from '$lib/components/1_PatternPolygonReactive.svelte';
 	import Pattern2 from '$lib/components/2_PatternPolygonReactiveOffsetSize.svelte';
-	import PatternGeometric from '$lib/components/3_PatternGeometricFlow.svelte';
+	import PatternSVG from '$lib/components/7_PatternSVG.svelte';
 
 	let patterns = [
 		{
@@ -19,25 +18,19 @@
 			description: 'The standard VSC Pattern with Sunrise Simulation.'
 		},
 		{
-			name: 'Pattern Advanced',
+			name: 'Pattern 1',
 			component: Pattern4,
 			description: 'Advanced VSC Pattern with Warp Distortion.'
 		},
 		{
-			name: 'Pattern Diagonal',
+			name: 'Pattern 2',
 			component: Pattern5,
 			description: 'Standard VSC Pattern tilted by 45 degrees.'
 		},
 		{
-			name: 'Pattern Warp',
-			component: Pattern6,
-			description: 'Grid with sine wave distortion (Warp).'
-		},
-		{
-			name: 'Geometric Flow (Rhombus)',
-			component: PatternGeometric,
-			description:
-				'An intricate interlocking pattern created exclusively from parallelograms in 4 colors.'
+			name: 'Pattern 3',
+			component: PatternSVG,
+			description: 'Pattern based on custom SVG path.'
 		}
 	];
 

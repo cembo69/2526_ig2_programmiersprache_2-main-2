@@ -1,12 +1,13 @@
 <script>
 	import Slider from '$lib/ui/Slider.svelte';
+	import ThemeSelector from '$lib/ui/ThemeSelector.svelte';
 	import OklchColorPicker from './OklchColorPicker.svelte';
 
 	// Reduced dimensions for a single unit
 	const baseTileWidth = 703.8;
 	const baseTileHeight = 702;
 
-	let tileCount = $state(5);
+	let tileCount = $state(15);
 	let tileCountX = $derived(tileCount);
 	let tileCountY = $derived(tileCount);
 	let offset = $state(10);
@@ -26,7 +27,7 @@
 
 	// Manual Color Override
 	let useManualColor = $state(true);
-	let manualColor = $state('#00002a');
+	let manualColor = $state('#8393ff');
 
 	// Frame Color Override
 	let useFrameColor = $state(true);
@@ -91,6 +92,11 @@
 		const rgb = hexToRgb(hex);
 		return rgbToHsl(rgb.r, rgb.g, rgb.b);
 	}
+
+    function darkenHex(hex, amount) {
+        const h = getHslFromHex(hex);
+        return `hsl(${h.h}, ${h.s}%, ${Math.max(0, h.l - amount)}%)`;
+    }
 
 	// Dynamic ViewBox calculation?
 	// User used fixed -500 -500 1000 1000 in snippet, but the tiles here are huge (700px).
@@ -237,7 +243,49 @@
 					{@const getFrameColors = (base) => {
 						if (!useFrameColor)
 							return { cTop: '#ffffff', cLeft: '#cccccc', cBottom: '#444444', cRight: '#1a1a1a' };
-						const hsl = getHslFromHex(base);
+						
+                        // Nordlichter Override
+                        if (base.toUpperCase() === '#0D1B2A') {
+                             return {
+                                cTop: '#0D1B2A',     // Nachtblau
+                                cLeft: '#2EC4B6',    // Türkis
+                                cBottom: '#7209B7',  // Violett
+                                cRight: '#CBFF4D'    // Aurora
+                             };
+                        }
+
+                        // Sportplatz Override
+                        if (base.toUpperCase() === '#4CAF50') {
+                             return {
+                                cTop: '#4CAF50',     // Green
+                                cLeft: '#FFFFFF',    // White
+                                cBottom: '#333333',  // Dark
+                                cRight: '#1982C4'    // Blue
+                             };
+                        }
+
+                        // Chinatown Override
+                        if (base.toUpperCase() === '#D32F2F') {
+                             return {
+                                cTop: '#D32F2F',     // Red
+                                cLeft: '#F2F2F2',    // Cloud White
+                                cBottom: '#2D3436',  // Obsidian
+                                cRight: '#FFD700'    // Gold
+                             };
+                        }
+
+                        // Miami Override
+                        if (base.toUpperCase() === '#FF91AF') { // Cheek for Flamingo Pink
+                            return {
+                                cTop: '#FF91AF',     // Flamingo
+                                cLeft: '#F2F2F2',    // Cloud White
+                                cBottom: '#00E5FF',  // Electric Blue
+                                cRight: '#FFB347',   // Sunset Orange
+                                cCenter: darkenHex('#00E5FF', 10)
+                            };
+                        }
+                        
+                        const hsl = getHslFromHex(base);
 						const h = hsl.h;
 						const s = hsl.s;
 						const l = hsl.l;
@@ -262,10 +310,17 @@
 							cTop: `hsl(${h}, ${s}%, ${startL}%)`,
 							cLeft: `hsl(${(h + 90) % 360}, ${s}%, ${Math.max(0, startL - 15)}%)`,
 							cBottom: `hsl(${(h + 180) % 360}, ${s}%, ${Math.max(0, startL - 30)}%)`,
-							cRight: `hsl(${(h + 270) % 360}, ${s}%, ${Math.max(0, startL - 50)}%)`
+							cRight: `hsl(${(h + 270) % 360}, ${s}%, ${Math.max(0, startL - 50)}%)`,
+                            cCenter: `hsl(${h}, ${s}%, ${Math.max(0, Math.max(0, startL - 50) - 10)}%)`
 						};
 					}}
-					{@const fc = getFrameColors(frameColor)}
+                    
+                    {@const isTheme = (c) => {
+                         const u = c.toUpperCase();
+                         return u==='#0D1B2A' || u==='#4CAF50' || u==='#D32F2F' || u==='#FF91AF';
+                    }}
+                    {@const effectiveFrameBase = isTheme(manualColor) ? manualColor : frameColor}
+					{@const fc = getFrameColors(effectiveFrameBase)}
 
 					{@const cTop = fc.cTop}
 					{@const cLeft = fc.cLeft}
@@ -273,7 +328,7 @@
 					{@const cRight = fc.cRight}
 
 					<!-- DYNAMIC SKY (Rect Only) -->
-					{@const cCenter = manualColor}
+					{@const cCenter = isTheme(manualColor) ? fc.cCenter : manualColor}
 
 					{@const posX = calculatePosition(xi, renderCountX, baseTileWidth, offsetX)}
 					{@const posY = calculatePosition(yi, renderCountY, baseTileHeight, offsetY)}
@@ -322,6 +377,9 @@
 	<!-- Hue/Sat are now automatic based on Time -->
 
 	<hr />
+    <ThemeSelector bind:color={manualColor} />
+    <hr />
+
 	<details open>
 		<summary style="cursor: pointer; color: white; margin-bottom: 0.5rem;">Center Color</summary>
 		<div style="margin-top: 0.5rem;">
