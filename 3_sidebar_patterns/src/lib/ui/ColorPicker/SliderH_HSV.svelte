@@ -1,7 +1,6 @@
 <script>
 	import { formatHex } from 'culori';
 	import DraggableSvgNode from './DraggableSvgNode.svelte';
-	import { hsv } from 'chroma-js';
 
 	let { hsvValues = $bindable(), width = 200, height = 14, margin = 6 } = $props();
 	// $inspect(hsvValues);
@@ -50,13 +49,28 @@
 		<rect x={0} y={0} {width} {height} rx="4" ry="4" fill="#444" />
 
 		<g>
-			<linearGradient id="luminanceGradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={width} y2="0">
+			<linearGradient
+				id="luminanceGradient"
+				gradientUnits="userSpaceOnUse"
+				x1="0"
+				y1="0"
+				x2={width}
+				y2="0"
+			>
 				{#each gradientStops as stop}
 					<stop offset={stop.offset} style={'stop-color:' + stop.color} />
 				{/each}
 			</linearGradient>
 
-			<rect fill="url(#luminanceGradient)" x={1} y={1} width={width - 2} height={height - 2} rx="3" ry="3" />
+			<rect
+				fill="url(#luminanceGradient)"
+				x={1}
+				y={1}
+				width={width - 2}
+				height={height - 2}
+				rx="3"
+				ry="3"
+			/>
 		</g>
 	</svg>
 
@@ -70,7 +84,17 @@
 	>
 		<rect bind:this={dragAreaElement} fill="#f000" x={0} y={0} {width} {height} />
 
-		<DraggableSvgNode {dragAreaElement} bind:x={thumbX} y={7} minX={1} maxX={width - 1} minY={7} maxY={7} {color} onchange={updateValues} />
+		<DraggableSvgNode
+			{dragAreaElement}
+			bind:x={thumbX}
+			y={7}
+			minX={1}
+			maxX={width - 1}
+			minY={7}
+			maxY={7}
+			{color}
+			onchange={updateValues}
+		/>
 	</svg>
 </div>
 

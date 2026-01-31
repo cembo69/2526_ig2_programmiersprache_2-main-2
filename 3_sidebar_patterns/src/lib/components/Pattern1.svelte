@@ -10,29 +10,31 @@
 	let tileCount = $state(15);
 	let tileCountX = $derived(tileCount);
 	let tileCountY = $derived(tileCount);
-	let offset = $state(10);
+	let offset = $state(140);
 	let offsetX = $derived(offset);
 	let offsetY = $derived(offset);
 
 	// New "Exciting" Controls
-	let rotation = $state(180);
+	// Rotation is derived from offset: as offset increases, rotation increases
+	let rotation = $derived(174 + (offset - 10) * (26 / 190)); // Maps offset 10-200 to rotation 174-200
 	const scale = 1;
-	const meshTightness = 0; // 0 = Original Look (Fixed)
+	const meshTightness = 0;
 
 	// Dynamic Colors (Hue/Sat Based Shadow System)
-	// (Simplified: Removed dynamic sky logic)
+	// (Simplified)
 
 	// Manual Color Override
 	let useManualColor = $state(true);
 	let manualColor = $state('#8393ff');
 
-	// Frame Color Override
-	let useFrameColor = $state(true);
-	let frameColor = $state('#ffffff');
-
-	// Sync frameColor with manualColor
-	$effect(() => {
-		frameColor = manualColor;
+	// Debug Colors
+	let useDebugColors = $state(false);
+	let debugColors = $state({
+		top: '#eb00ab',
+		bottom: '#230010',
+		left: '#e00083',
+		right: '#1c000c',
+		center: '#ff009f'
 	});
 
 	// HSL Helper Functions
@@ -82,11 +84,13 @@
 	// Actually, simple Euclidean distance in index-space works well.
 	let maxDist = $derived(Math.sqrt(Math.pow(tileCountX / 2, 2) + Math.pow(tileCountY / 2, 2)));
 
-	// User's requested center-out logic
+	// User's requested center-out logic with rotation compensation
 	function calculatePosition(index, count, size, gap) {
-		const basePosition = (index - count / 2) * size;
-		const offsetPosition = (index - count / 2 + 0.5) * gap;
-		return basePosition + offsetPosition;
+		const rotationFactor = Math.abs(rotation - 180) / 26;
+		const rotationCompensation = 1 - rotationFactor * 0.3;
+		const adjustedGap = gap * rotationCompensation;
+		const effectiveSize = size + adjustedGap;
+		return (index - count / 2) * effectiveSize;
 	}
 
 	// Helper to get HSL object directly from hex
@@ -94,11 +98,11 @@
 		const rgb = hexToRgb(hex);
 		return rgbToHsl(rgb.r, rgb.g, rgb.b);
 	}
-    
-    function darkenHex(hex, amount) {
-        const h = getHslFromHex(hex);
-        return `hsl(${h.h}, ${h.s}%, ${Math.max(8, h.l - amount)}%)`;
-    }
+
+	function darkenHex(hex, amount) {
+		const h = getHslFromHex(hex);
+		return `hsl(${h.h}, ${h.s}%, ${Math.max(8, h.l - amount)}%)`;
+	}
 
 	// Dynamic ViewBox calculation?
 	// User used fixed -500 -500 1000 1000 in snippet, but the tiles here are huge (700px).
@@ -106,11 +110,23 @@
 	// If we want it to "grow from center", a fixed large viewBox is best, OR a reactive centered one.
 	// Let's try a reactive one that ensures the whole pattern is visible, centered on 0,0.
 
-	// Total width approx: count * size + count * gap
-	let totalWidth = $derived(tileCountX * baseTileWidth + tileCountX * offsetX);
-	let totalHeight = $derived(tileCountY * baseTileHeight + tileCountY * offsetY);
+	// Total width/height with rotation compensation
+	const rotationFactor = $derived(Math.abs(rotation - 180) / 26);
+	const rotationCompensation = $derived(1 - rotationFactor * 0.3);
+	const adjustedOffsetX = $derived(offsetX * rotationCompensation);
+	const adjustedOffsetY = $derived(offsetY * rotationCompensation);
 
-	// Add some padding
+	// Add extra tiles to ensure canvas is always filled
+	const extraTiles = 4;
+	const renderTileCountX = $derived(tileCountX + extraTiles);
+	const renderTileCountY = $derived(tileCountY + extraTiles);
+
+	let totalWidth = $derived(renderTileCountX * baseTileWidth + renderTileCountX * adjustedOffsetX);
+	let totalHeight = $derived(
+		renderTileCountY * baseTileHeight + renderTileCountY * adjustedOffsetY
+	);
+
+	// Minimal padding
 	let vbW = $derived(totalWidth);
 	let vbH = $derived(totalHeight);
 	let vbX = $derived(-vbW / 2);
@@ -223,67 +239,73 @@
 
 <div class="svg-container">
 	<svg viewBox="{vbX} {vbY} {vbW} {vbH}" class="svg-canvas" preserveAspectRatio="xMidYMid meet">
-		{#each Array(tileCountY) as _, yi}
-			{#each Array(tileCountX) as _, xi}
+		{#each Array(renderTileCountY) as _, yi}
+			{#each Array(renderTileCountX) as _, xi}
 				{@const scaleX = xi % 2 !== 0 ? -1 : 1}
 				{@const scaleY = yi % 2 !== 0 ? -1 : 1}
 
-				{@const posX = calculatePosition(xi, tileCountX, baseTileWidth, offsetX)}
-				{@const posY = calculatePosition(yi, tileCountY, baseTileHeight, offsetY)}
+				{@const posX = calculatePosition(xi, renderTileCountX, baseTileWidth, offsetX)}
+				{@const posY = calculatePosition(yi, renderTileCountY, baseTileHeight, offsetY)}
 
 				<!-- STATIC FRAME COLORS (or Dynamic Frame) -->
 				{@const getFrameColors = (base) => {
-					if (!useFrameColor)
-						return { cTop: '#ffffff', cLeft: '#cccccc', cBottom: '#1a1a1a', cRight: '#0d0d0d', cCenter: '#141414' };
-					
-                    // Nordlichter Override
-                    if (base.toUpperCase() === '#0D1B2A') { 
-                         return {
-                            cTop: '#0D1B2A',     // Nachtblau (Darkest)
-                            cLeft: '#2EC4B6',    // Türkis
-                            cBottom: '#7209B7',  // Violett
-                            cRight: '#CBFF4D',   // Aurora
-                            cCenter: darkenHex('#0D1B2A', 10)
-                         };
-                    }
-                    
-                    // Sportplatz Override
-                    if (base.toUpperCase() === '#4CAF50') { 
-                         return {
-                            cTop: '#4CAF50',     // Green
-                            cLeft: '#FFFFFF',    // White
-                            cBottom: '#2a5f2a',  // Dark Green (mindestens 8% Helligkeit)
-                            cRight: '#1982C4',   // Blue
-                            cCenter: '#1a3d1a'
-                         };
-                    }
-                    
-                    // Chinatown Override
-                    if (base.toUpperCase() === '#D32F2F') { 
-                         return {
-                            cTop: '#D32F2F',     // Red
-                            cLeft: '#F2F2F2',    // Cloud White
-                            cBottom: '#4a2424',  // Dark Red (mindestens 8% Helligkeit)
-                            cRight: '#FFD700',   // Gold
-                            cCenter: '#2d1515'
-                         };
-                    }
+					// Debug Mode Override
+					if (useDebugColors) {
+						return {
+							cTop: debugColors.top,
+							cLeft: debugColors.left,
+							cBottom: debugColors.bottom,
+							cRight: debugColors.right,
+							cCenter: debugColors.center
+						};
+					}
 
-                    // Miami Override
-                    if (base.toUpperCase() === '#FF91AF') { 
-                         return {
-                            cTop: '#FF91AF',     // Flamingo
-                            cLeft: '#F2F2F2',    // Cloud White
-                            cBottom: '#1a4a4d',  // Dark Teal (mindestens 8% Helligkeit)
-                            cRight: '#FFB347',   // Sunset Orange
-                            cCenter: '#143639' 
-                         };
-                    }
+					// Nordlichter Override
+					if (base.toUpperCase() === '#0D1B2A') {
+						return {
+							cTop: '#0D1B2A', // Nachtblau
+							cLeft: '#2EC4B6', // Türkis
+							cBottom: '#7209B7', // Violett
+							cRight: '#CBFF4D', // Aurora
+							cCenter: darkenHex('#0D1B2A', 10)
+						};
+					}
+
+					// Sportplatz Override
+					if (base.toUpperCase() === '#4CAF50') {
+						return {
+							cTop: '#4CAF50', // Green
+							cLeft: '#FFFFFF', // White
+							cBottom: '#333333', // Dark
+							cRight: '#1982C4', // Blue
+							cCenter: darkenHex('#333333', 10)
+						};
+					}
+
+					// Chinatown Override
+					if (base.toUpperCase() === '#D32F2F') {
+						return {
+							cTop: '#D32F2F', // Red
+							cLeft: '#F2F2F2', // Cloud White
+							cBottom: '#2D3436', // Obsidian
+							cRight: '#FFD700', // Gold
+							cCenter: darkenHex('#2D3436', 10)
+						};
+					}
+
+					// Miami Override
+					if (base.toUpperCase() === '#FF91AF') {
+						// Cheek for Flamingo Pink
+						return {
+							cTop: '#FF91AF', // Flamingo
+							cLeft: '#F2F2F2', // Cloud White
+							cBottom: '#00E5FF', // Electric Blue
+							cRight: '#FFB347', // Sunset Orange
+							cCenter: darkenHex('#00E5FF', 10)
+						};
+					}
 
 					const hsl = getHslFromHex(base);
-					// Tetradic Rotation (90deg steps)
-					// Plus standardized Lightness steps to preserve 3D form relative to input
-					// We clamp lightness to ensure visibility
 					const h = hsl.h;
 					const s = hsl.s;
 					const l = Math.max(0, Math.min(100, hsl.l));
@@ -293,16 +315,15 @@
 						cLeft: `hsl(${(h + 90) % 360}, ${s}%, ${Math.max(8, l - 20)}%)`,
 						cBottom: `hsl(${(h + 180) % 360}, ${s}%, ${Math.max(8, l - 75)}%)`,
 						cRight: `hsl(${(h + 270) % 360}, ${s}%, ${Math.max(8, l - 90)}%)`,
-                        cCenter: `hsl(${h}, ${s}%, ${Math.max(8, l - 100)}%)`
+						cCenter: `hsl(${h}, ${s}%, ${Math.max(8, l - 100)}%)`
 					};
 				}}
-                
-                {@const isTheme = (c) => {
-                     const u = c.toUpperCase();
-                     return u==='#0D1B2A' || u==='#4CAF50' || u==='#D32F2F' || u==='#FF91AF';
-                }}
-                {@const effectiveFrameBase = isTheme(manualColor) ? manualColor : frameColor}
-				{@const fc = getFrameColors(effectiveFrameBase)}
+
+				{@const isTheme = (c) => {
+					const u = c.toUpperCase();
+					return u === '#0D1B2A' || u === '#4CAF50' || u === '#D32F2F' || u === '#FF91AF';
+				}}
+				{@const fc = getFrameColors(manualColor)}
 
 				{@const cTop = fc.cTop}
 				{@const cLeft = fc.cLeft}
@@ -310,7 +331,7 @@
 				{@const cRight = fc.cRight}
 
 				<!-- DYNAMIC SKY (Rect Only) -->
-				{@const cCenter = isTheme(manualColor) ? fc.cCenter : manualColor}
+				{@const cCenter = fc.cCenter}
 
 				{@const finalX = posX + (scaleX === -1 ? baseTileWidth : 0)}
 				{@const finalY = posY + (scaleY === -1 ? baseTileHeight : 0)}
@@ -342,11 +363,9 @@
 </div>
 
 <div class="sidebar-right">
-	<Slider min={1} max={49} step={2} bind:value={tileCount} label="Tile Count" />
+	<Slider min={15} max={45} step={2} bind:value={tileCount} label="Tile Count" />
 	<hr />
-	<Slider min={10} max={200} bind:value={offset} label="Tile Offset" />
-	<hr />
-	<Slider min={174} max={200} bind:value={rotation} label="Rotation (deg)" />
+	<Slider min={6} max={135} bind:value={offset} label="Tile Offset / Rotation" />
 	<hr />
 
 	<!-- Unified Colors -->
@@ -355,5 +374,65 @@
 	<hr />
 	<ThemeSelector bind:color={manualColor} />
 	<hr />
-	<ColorPickerHSV bind:color={manualColor} width={250} />
+
+	<details open>
+		<summary style="cursor: pointer; color: white; margin-bottom: 0.5rem;">Color Picker</summary>
+		<div style="margin-top: 0.5rem;">
+			<ColorPickerHSV bind:color={manualColor} width={250} />
+		</div>
+	</details>
+
+	<hr />
+	<label style="display: flex; align-items: center; gap: 8px; color: white;">
+		<input type="checkbox" bind:checked={useDebugColors} />
+		Debug Colors
+	</label>
+
+	{#if useDebugColors}
+		<div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+			<!-- Top -->
+			<details>
+				<summary style="cursor: pointer; color: white;">Top Color</summary>
+				<div style="margin-top: 5px;">
+					<ColorPickerHSV bind:color={debugColors.top} width={250} />
+				</div>
+			</details>
+			<!-- Bottom -->
+			<details>
+				<summary style="cursor: pointer; color: white;">Bottom Color</summary>
+				<div style="margin-top: 5px;">
+					<ColorPickerHSV bind:color={debugColors.bottom} width={250} />
+				</div>
+			</details>
+			<!-- Left -->
+			<details>
+				<summary style="cursor: pointer; color: white;">Left Color</summary>
+				<div style="margin-top: 5px;">
+					<ColorPickerHSV bind:color={debugColors.left} width={250} />
+				</div>
+			</details>
+			<!-- Right -->
+			<details>
+				<summary style="cursor: pointer; color: white;">Right Color</summary>
+				<div style="margin-top: 5px;">
+					<ColorPickerHSV bind:color={debugColors.right} width={250} />
+				</div>
+			</details>
+			<!-- Center -->
+			<details>
+				<summary style="cursor: pointer; color: white;">Center Color</summary>
+				<div style="margin-top: 5px;">
+					<ColorPickerHSV bind:color={debugColors.center} width={250} />
+				</div>
+			</details>
+
+			<hr />
+			<div style="color: white; font-size: 0.8em;">
+				<p>Current Configuration (Copy valid for JSON):</p>
+				<code style="display: block; background: #222; padding: 5px; user-select: text;">
+					{JSON.stringify(debugColors, null, 2)}
+				</code>
+			</div>
+		</div>
+	{/if}
 </div>

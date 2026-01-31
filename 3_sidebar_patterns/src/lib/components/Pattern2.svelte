@@ -29,13 +29,14 @@
 	let useManualColor = $state(true);
 	let manualColor = $state('#8393ff');
 
-	// Frame Color Override
-	let useFrameColor = $state(true);
-	let frameColor = $state('#ffffff');
-
-	// Sync frameColor with manualColor
-	$effect(() => {
-		frameColor = manualColor;
+	// Debug Colors
+	let useDebugColors = $state(false);
+	let debugColors = $state({
+		top: '#eb00ab',
+		bottom: '#230010',
+		left: '#e00083',
+		right: '#1c000c',
+		center: '#ff009f'
 	});
 
 	// HSL Helper Functions
@@ -87,9 +88,8 @@
 
 	// User's requested center-out logic
 	function calculatePosition(index, count, size, gap) {
-		const basePosition = (index - count / 2) * size;
-		const offsetPosition = (index - count / 2 + 0.5) * gap;
-		return basePosition + offsetPosition;
+		const effectiveSize = size + gap;
+		return (index - count / 2) * effectiveSize;
 	}
 
 	// Helper to get HSL object directly from hex
@@ -246,86 +246,47 @@
 
 					<!-- STATIC FRAME COLORS (or Dynamic Frame) -->
 					{@const getFrameColors = (base) => {
-						if (!useFrameColor)
-							return { cTop: '#ffffff', cLeft: '#cccccc', cBottom: '#1a1a1a', cRight: '#0d0d0d' };
-						
-                        // Nordlichter Override
-                        if (base.toUpperCase() === '#0D1B2A') {
-                             return {
-                                cTop: '#0D1B2A',     // Nachtblau
-                                cLeft: '#2EC4B6',    // Türkis
-                                cBottom: '#7209B7',  // Violett
-                                cRight: '#CBFF4D'    // Aurora
-                             };
-                        }
+						// Debug Mode Override
+						if (useDebugColors) {
+							return {
+								cTop: debugColors.top,
+								cLeft: debugColors.left,
+								cBottom: debugColors.bottom,
+								cRight: debugColors.right,
+								cCenter: debugColors.center
+							};
+						}
 
-                        // Sportplatz Override
-                        if (base.toUpperCase() === '#4CAF50') {
-                             return {
-                                cTop: '#4CAF50',     // Green
-                                cLeft: '#FFFFFF',    // White
-                                cBottom: '#333333',  // Dark
-                                cRight: '#1982C4'    // Blue
-                             };
-                        }
-
-                        // Chinatown Override
-                        if (base.toUpperCase() === '#D32F2F') {
-                             return {
-                                cTop: '#D32F2F',     // Red
-                                cLeft: '#F2F2F2',    // Cloud White
-                                cBottom: '#2D3436',  // Obsidian
-                                cRight: '#FFD700'    // Gold
-                             };
-                        }
-
-                        // Miami Override
-                        if (base.toUpperCase() === '#FF91AF') { // Cheek for Flamingo Pink
-                            return {
-                                cTop: '#FF91AF',     // Flamingo
-                                cLeft: '#F2F2F2',    // Cloud White
-                                cBottom: '#00E5FF',  // Electric Blue
-                                cRight: '#FFB347',   // Sunset Orange
-                                cCenter: darkenHex('#00E5FF', 10)
-                            };
-                        }
-                        
-                        const hsl = getHslFromHex(base);
+						// Custom Hierarchy Logic based on User Request
+						const hsl = getHslFromHex(base);
 						const h = hsl.h;
 						const s = hsl.s;
-						const l = hsl.l;
+						const topL = hsl.l;
 
-						// Guarantee 4 distinct lightness levels
-						// We define a spread (e.g. 15% per step)
-						// If base L is too low to support drops, we shift the whole range up.
-						// Target offsets: 0, -15, -30, -50
+						// Transformation logic derived from example:
+						// Center is always black
+						// Derived from Top:
+						// Left: L + 2%
+						// Right: L - 26%
+						// Bottom: L - 25%
 
-						const maxDrop = 50;
-						let startL = l;
-
-						// If starting lightness is lower than the max drop + buffer, shift it up
-						// so distinctness is preserved.
-						if (startL < maxDrop + 10) {
-							startL = maxDrop + 10;
-						}
-						// Cap at 100
-						if (startL > 100) startL = 100;
-
+						const leftL = Math.min(100, topL + 2);
+						const rightL = Math.max(0, topL - 26);
+						const bottomL = Math.max(0, topL - 25);
 						return {
-							cTop: `hsl(${h}, ${s}%, ${startL}%)`,
-							cLeft: `hsl(${(h + 90) % 360}, ${s}%, ${Math.max(8, startL - 15)}%)`,
-							cBottom: `hsl(${(h + 180) % 360}, ${s}%, ${Math.max(8, startL - 30)}%)`,
-							cRight: `hsl(${(h + 270) % 360}, ${s}%, ${Math.max(8, startL - 50)}%)`,
-                            cCenter: `hsl(${h}, ${s}%, ${Math.max(8, Math.max(8, startL - 50) - 10)}%)`
+							cCenter: '#000000',
+							cTop: `hsl(${h}, ${s}%, ${topL}%)`,
+							cLeft: `hsl(${h}, ${s}%, ${leftL}%)`,
+							cRight: `hsl(${h}, ${s}%, ${rightL}%)`,
+							cBottom: `hsl(${h}, ${s}%, ${bottomL}%)`
 						};
 					}}
-                    
-                    {@const isTheme = (c) => {
-                         const u = c.toUpperCase();
-                         return u==='#0D1B2A' || u==='#4CAF50' || u==='#D32F2F' || u==='#FF91AF';
-                    }}
-                    {@const effectiveFrameBase = isTheme(manualColor) ? manualColor : frameColor}
-					{@const fc = getFrameColors(effectiveFrameBase)}
+
+					{@const isTheme = (c) => {
+						const u = c.toUpperCase();
+						return u === '#0D1B2A' || u === '#4CAF50' || u === '#D32F2F' || u === '#FF91AF';
+					}}
+					{@const fc = getFrameColors(manualColor)}
 
 					{@const cTop = fc.cTop}
 					{@const cLeft = fc.cLeft}
@@ -333,7 +294,7 @@
 					{@const cRight = fc.cRight}
 
 					<!-- DYNAMIC SKY (Rect Only) -->
-					{@const cCenter = isTheme(manualColor) ? fc.cCenter : manualColor}
+					{@const cCenter = fc.cCenter}
 
 					{@const posX = calculatePosition(xi, renderCountX, baseTileWidth, offsetX)}
 					{@const posY = calculatePosition(yi, renderCountY, baseTileHeight, offsetY)}
@@ -370,7 +331,7 @@
 <div class="sidebar-right">
 	<Slider min={1} max={101} step={2} bind:value={tileCount} label="Tile Count" />
 	<hr />
-	<Slider min={10} max={200} bind:value={offset} label="Tile Offset" />
+	<Slider min={10} max={135} bind:value={offset} label="Tile Offset" />
 	<hr />
 	<Slider min={174} max={200} bind:value={rotation} label="Rotation (deg)" />
 	<hr />
@@ -382,21 +343,67 @@
 	<!-- Hue/Sat are now automatic based on Time -->
 
 	<hr />
-    <ThemeSelector bind:color={manualColor} />
-    <hr />
+	<ThemeSelector bind:color={manualColor} />
+	<hr />
 
 	<details open>
-		<summary style="cursor: pointer; color: white; margin-bottom: 0.5rem;">Center Color</summary>
+		<summary style="cursor: pointer; color: white; margin-bottom: 0.5rem;">Color Picker</summary>
 		<div style="margin-top: 0.5rem;">
 			<ColorPickerHSV bind:color={manualColor} width={250} />
 		</div>
 	</details>
 
 	<hr />
-	<details>
-		<summary style="cursor: pointer; color: white; margin-bottom: 0.5rem;">Frame Color</summary>
-		<div style="margin-top: 0.5rem;">
-			<ColorPickerHSV bind:color={frameColor} width={250} />
+	<label style="display: flex; align-items: center; gap: 8px; color: white;">
+		<input type="checkbox" bind:checked={useDebugColors} />
+		Debug Colors
+	</label>
+
+	{#if useDebugColors}
+		<div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+			<!-- Top -->
+			<details>
+				<summary style="cursor: pointer; color: white;">Top Color</summary>
+				<div style="margin-top: 5px;">
+					<ColorPickerHSV bind:color={debugColors.top} width={250} />
+				</div>
+			</details>
+			<!-- Bottom -->
+			<details>
+				<summary style="cursor: pointer; color: white;">Bottom Color</summary>
+				<div style="margin-top: 5px;">
+					<ColorPickerHSV bind:color={debugColors.bottom} width={250} />
+				</div>
+			</details>
+			<!-- Left -->
+			<details>
+				<summary style="cursor: pointer; color: white;">Left Color</summary>
+				<div style="margin-top: 5px;">
+					<ColorPickerHSV bind:color={debugColors.left} width={250} />
+				</div>
+			</details>
+			<!-- Right -->
+			<details>
+				<summary style="cursor: pointer; color: white;">Right Color</summary>
+				<div style="margin-top: 5px;">
+					<ColorPickerHSV bind:color={debugColors.right} width={250} />
+				</div>
+			</details>
+			<!-- Center -->
+			<details>
+				<summary style="cursor: pointer; color: white;">Center Color</summary>
+				<div style="margin-top: 5px;">
+					<ColorPickerHSV bind:color={debugColors.center} width={250} />
+				</div>
+			</details>
+
+			<hr />
+			<div style="color: white; font-size: 0.8em;">
+				<p>Current Configuration (Copy valid for JSON):</p>
+				<code style="display: block; background: #222; padding: 5px; user-select: text;">
+					{JSON.stringify(debugColors, null, 2)}
+				</code>
+			</div>
 		</div>
-	</details>
+	{/if}
 </div>

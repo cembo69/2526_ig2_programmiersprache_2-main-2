@@ -1,0 +1,35 @@
+// Temporary file to store the new getFrameColors logic for 4_PatternAdvanced.svelte
+// This will be manually integrated
+
+{@const getFrameColors = (base) => {
+	// Debug Mode Override
+	if (useDebugColors) {
+		return {
+			cTop: debugColors.top,
+			cLeft: debugColors.left,
+			cBottom: debugColors.bottom,
+			cRight: debugColors.right,
+			cCenter: debugColors.center
+		};
+	}
+
+	// Custom Hierarchy Logic:
+	// Top is the base color (from manualColor)
+	// Center is always white
+	const hsl = getHslFromHex(base);
+	const h = hsl.h;
+	const s = hsl.s;
+	const topL = hsl.l;
+
+	const leftL = Math.max(0, topL - 1);
+	const rightL = Math.max(0, topL - 37);
+	const bottomL = Math.max(0, topL - 39);
+
+	return {
+		cCenter: '#ffffff',
+		cTop: `hsl(${h}, ${s}%, ${topL}%)`,
+		cLeft: `hsl(${h}, ${s}%, ${leftL}%)`,
+		cRight: `hsl(${h}, ${s}%, ${rightL}%)`,
+		cBottom: `hsl(${h}, ${s}%, ${bottomL}%)`
+	};
+}}
