@@ -8,15 +8,15 @@
 	let tileCountY = $derived(tileCount);
 
 	// Separate X and Y offsets for more control
-	let offsetX = $state(100);
-	let offsetY = $state(100);
+	let offsetX = $state(-200);
+	let offsetY = $state(-200);
 
 	// Tile size controls
-	let tileWidth = $state(1000);
-	let tileHeight = $state(1000);
+	let tileWidth = $state(1230);
+	let tileHeight = $state(1230);
 
 	// Scale and rotation
-	let scale = $state(0.8);
+	let scale = $state(1);
 	let rotation = $state(0);
 
 	// Manual Color Override
@@ -77,12 +77,9 @@
 
 	let maxDist = $derived(Math.sqrt(Math.pow(tileCountX / 2, 2) + Math.pow(tileCountY / 2, 2)));
 
-	// User's requested center-out logic with rotation compensation
+	// Standard positioning logic (simplified)
 	function calculatePosition(index, count, size, gap) {
-		const rotationFactor = Math.abs(rotation - 180) / 26;
-		const rotationCompensation = 1 - rotationFactor * 0.3;
-		const adjustedGap = gap * rotationCompensation;
-		const effectiveSize = size + adjustedGap;
+		const effectiveSize = size + gap;
 		return (index - count / 2) * effectiveSize;
 	}
 
@@ -96,11 +93,9 @@
 		return `hsl(${h.h}, ${h.s}%, ${Math.max(8, h.l - amount)}%)`;
 	}
 
-	// ViewBox calculation with rotation compensation
-	const rotationFactor = $derived(Math.abs(rotation - 180) / 26);
-	const rotationCompensation = $derived(1 - rotationFactor * 0.3);
-	const adjustedOffsetX = $derived(offsetX * rotationCompensation);
-	const adjustedOffsetY = $derived(offsetY * rotationCompensation);
+	// Simple ViewBox calculation
+	const adjustedOffsetX = $derived(offsetX);
+	const adjustedOffsetY = $derived(offsetY);
 
 	// Add extra tiles to ensure canvas is always filled
 	const extraTiles = 4;
