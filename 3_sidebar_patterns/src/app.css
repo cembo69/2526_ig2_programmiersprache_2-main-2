@@ -155,3 +155,8 @@ svg {
 	font-size: 0.75rem;
 	margin-bottom: 0.5rem;
 }
+
+.sidebar-right :global(.container) {
+	margin-left: auto;
+	margin-right: auto;
+}

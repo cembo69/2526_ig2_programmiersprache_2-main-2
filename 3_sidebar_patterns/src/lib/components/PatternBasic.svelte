@@ -1,41 +1,52 @@
 <script>
 	import Slider from '$lib/ui/Slider.svelte';
-	import ThemeSelector from '$lib/ui/ThemeSelector.svelte';
-	import ColorPickerHSV from '$lib/ui/ColorPicker/ColorPickerHSV.svelte';
+	import ColorPickerJonas from '$lib/ui/ColorPickerJonas.svelte';
 
 	// Reduced dimensions for a single unit
 	const baseTileWidth = 703.8;
 	const baseTileHeight = 702;
 
-	let tileCount = $state(15);
+	let tileCount = $state(5);
 	let tileCountX = $derived(tileCount);
 	let tileCountY = $derived(tileCount);
-	let offset = $state(140);
-	let offsetX = $derived(offset);
-	let offsetY = $derived(offset);
-
-	// New "Exciting" Controls
-	// Rotation is derived from offset: as offset increases, rotation increases
-	let rotation = $derived(174 + (offset - 10) * (26 / 190)); // Maps offset 10-200 to rotation 174-200
+	
+	// Offset controls rotation
+	let offset = $state(45);
+	const offsetX = $derived(offset);
+	const offsetY = $derived(offset);
+	const rotation = $derived(174 + (offset - 10) * (26 / 190));
 	const scale = 1;
-	const meshTightness = 0; // 0 = Original Look (Fixed)
+	const meshTightness = 0;
 
-	// Dynamic Colors (Hue/Sat Based Shadow System)
-	// (Simplified: Removed dynamic sky logic)
+	// Theme definitions - genau wie in Pattern 1
+	const themes = {
+		'Tron': ['#00D2FF', '#39FF14', '#FF073A', '#1B1B1B'],
+		'Chinatown': ['#E60012', '#FFD700', '#006747', '#2A2A2A'],
+		'Forest': ['#228B22', '#8A9A5B', '#A67C52', '#6B4F2A'],
+		'Miami': ['#00B5B8', '#FF6F61', '#FFDD00', '#F1F1F1'],
+		'Moonlight': ['#6D9BC3', '#C0C0C0', '#003366', '#2F3C45']
+	};
 
-	// Manual Color Override
-	let useManualColor = $state(true);
-	let manualColor = $state('#8393ff');
-
-	// Debug Colors
-	let useDebugColors = $state(false);
-	let debugColors = $state({
-		top: '#eb00ab',
-		bottom: '#230010',
-		left: '#e00083',
-		right: '#1c000c',
-		center: '#ff009f'
-	});
+	let selectedTheme = $state('Miami');
+	
+	// Custom Color für ColorPicker
+	let customColor = $state(null);
+	
+	// 4 Farben für verschiedene Pattern-Bereiche
+	let color1 = $derived(themes[selectedTheme][0]);
+	let color2 = $derived(themes[selectedTheme][1]);
+	let color3 = $derived(themes[selectedTheme][2]);
+	let color4 = $derived(themes[selectedTheme][3]);
+	
+	// Basis-Farbe für HSL-Berechnungen - nutzt customColor wenn gesetzt, sonst color1
+	let baseColor = $derived(customColor || color1);
+	
+	// Hintergrund Toggle
+	let darkBackground = $state(true);
+	let backgroundColor = $derived(darkBackground ? '#000000' : '#ffffff');
+	
+	// Kontrast-Steuerung für 3D-Effekt
+	const contrast = 0.9;
 
 	// HSL Helper Functions
 	function hexToRgb(hex) {
@@ -129,7 +140,7 @@
 	const adjustedOffsetY = $derived(offsetY * rotationCompensation);
 
 	// Add extra tiles to ensure canvas is always filled (even when pattern shifts)
-	const extraTiles = 4; // Add 2 tiles on each side
+	const extraTiles = 8; // Add 4 tiles on each side for infinite effect
 	const renderTileCountX = $derived(tileCountX + extraTiles);
 	const renderTileCountY = $derived(tileCountY + extraTiles);
 
@@ -251,6 +262,9 @@
 
 <div class="svg-container">
 	<svg viewBox="{vbX} {vbY} {vbW} {vbH}" class="svg-canvas" preserveAspectRatio="xMidYMid meet">
+		<!-- Background Rectangle -->
+		<rect x="{vbX}" y="{vbY}" width="{vbW}" height="{vbH}" fill="{backgroundColor}" />
+		
 		{#each Array(renderTileCountY) as _, yi}
 			{#each Array(renderTileCountX) as _, xi}
 				{@const scaleX = xi % 2 !== 0 ? -1 : 1}
@@ -259,75 +273,47 @@
 				{@const posX = calculatePosition(xi, renderTileCountX, baseTileWidth, offsetX)}
 				{@const posY = calculatePosition(yi, renderTileCountY, baseTileHeight, offsetY)}
 
-				<!-- STATIC FRAME COLORS (or Dynamic Frame) -->
+			{@const finalX = posX + (scaleX === -1 ? baseTileWidth : 0)}
+			{@const finalY = posY + (scaleY === -1 ? baseTileHeight : 0)}
 
-				{@const getFrameColors = (base) => {
-					// Debug Mode Override
-					if (useDebugColors) {
-						return {
-							cTop: debugColors.top,
-							cLeft: debugColors.left,
-							cBottom: debugColors.bottom,
-							cRight: debugColors.right,
-							cCenter: debugColors.center
-						};
-					}
+			<!-- Modus: CustomColor verwendet HSL-Hierarchie, Theme verwendet direkte Farben -->
+			{@const getHierarchyColors = (base) => {
+				const hsl = getHslFromHex(base);
+				const h = hsl.h;
+				const s = hsl.s;
+				const topL = hsl.l;
+				const leftL = Math.max(0, topL - (8 * contrast));
+				const rightL = Math.max(0, topL - (42 * contrast));
+				const bottomL = Math.max(0, topL - (45 * contrast));
+				const centerL = Math.max(0, topL - (75 * contrast));
+				return {
+					cTop: `hsl(${h}, ${s}%, ${topL}%)`,
+					cLeft: `hsl(${h}, ${s}%, ${leftL}%)`,
+					cRight: `hsl(${h}, ${s}%, ${rightL}%)`,
+					cBottom: `hsl(${h}, ${s}%, ${bottomL}%)`,
+					cCenter: `hsl(${h}, ${s}%, ${centerL}%)`
+				};
+			}}
 
-					// Custom Hierarchy Logic based on User Request
-					// Top is the base color (from manualColor)
-					const hsl = getHslFromHex(base);
-					const h = hsl.h;
-					const s = hsl.s;
-					const topL = hsl.l;
+			{@const hierarchyColors = customColor ? getHierarchyColors(customColor) : null}
 
-					// Transformation logic derived from example:
-					// Center is always black
-					// Derived from Top:
-					// Left: L + 2%
-					// Right: L - 26%
-					// Bottom: L - 25%
+			<!-- Theme-Farben für die einzelnen Formen (wenn kein customColor) -->
+			{@const cTop = customColor ? hierarchyColors.cTop : color1}
+			{@const cRight = customColor ? hierarchyColors.cRight : color2}
+			{@const cBottom = customColor ? hierarchyColors.cBottom : color3}
+			{@const cLeft = customColor ? hierarchyColors.cLeft : color4}
+			{@const cCenter = customColor ? hierarchyColors.cCenter : '#000000'}
 
-					// Ensure we don't go below 0
-					const leftL = Math.min(100, topL + 2);
-					const rightL = Math.max(0, topL - 26);
-					const bottomL = Math.max(0, topL - 25);
-					return {
-						cCenter: '#000000',
-						cTop: `hsl(${h}, ${s}%, ${topL}%)`,
-						cLeft: `hsl(${h}, ${s}%, ${leftL}%)`,
-						cRight: `hsl(${h}, ${s}%, ${rightL}%)`,
-						cBottom: `hsl(${h}, ${s}%, ${bottomL}%)`
-					};
-				}}
+			<!-- Korrektur für Spiegelung -->
+			{@const visualCTop = scaleY === -1 ? cBottom : cTop}
+			{@const visualCBottom = scaleY === -1 ? cTop : cBottom}
+			{@const visualCLeft = scaleX === -1 ? cRight : cLeft}
+			{@const visualCRight = scaleX === -1 ? cLeft : cRight}
 
-				{@const isTheme = (c) => {
-					const u = c.toUpperCase();
-					return u === '#0D1B2A' || u === '#4CAF50' || u === '#D32F2F' || u === '#FF91AF';
-				}}
-				{@const fc = getFrameColors(manualColor)}
-
-				{@const cTop = fc.cTop}
-				{@const cLeft = fc.cLeft}
-				{@const cBottom = fc.cBottom}
-				{@const cRight = fc.cRight}
-
-				<!-- DYNAMIC SKY (Rect Only) -->
-				{@const cCenter = fc.cCenter}
-
-				{@const finalX = posX + (scaleX === -1 ? baseTileWidth : 0)}
-				{@const finalY = posY + (scaleY === -1 ? baseTileHeight : 0)}
-
-				// Correction for Mirroring: // If flipped, we swap the visual colors so the apparent light
-				source (Top-Left) stays constant.
-				{@const visualCTop = scaleY === -1 ? cBottom : cTop}
-				{@const visualCBottom = scaleY === -1 ? cTop : cBottom}
-				{@const visualCLeft = scaleX === -1 ? cRight : cLeft}
-				{@const visualCRight = scaleX === -1 ? cLeft : cRight}
-
-				<g
-					transform="translate({finalX}, {finalY}) scale({scaleX}, {scaleY}) rotate({rotation} {baseTileWidth /
-						2} {baseTileHeight / 2}) scale({scale})"
-				>
+			<g
+				transform="translate({finalX}, {finalY}) scale({scaleX}, {scaleY}) rotate({rotation} {baseTileWidth /
+					2} {baseTileHeight / 2}) scale({scale})"
+			>
 					<!-- Surrounding Shapes FIRST (Behind) -->
 					<!-- Use the corrected 'visual' colors for the geometric paths -->
 					<path d={p_bottom} fill={visualCBottom} id="Bottom" />
@@ -344,70 +330,146 @@
 </div>
 
 <div class="sidebar-right">
-	<Slider min={5} max={35} step={2} bind:value={tileCount} label="Tile Count" />
+	<Slider min={5} max={35} step={1} bind:value={tileCount} label="Tile Count" />
 	<hr />
 	<Slider min={6} max={135} bind:value={offset} label="Tile Offset / Rotation" />
 	<hr />
-
-	<!-- Unified Colors -->
-	<!-- Hue/Sat are now automatic based on Time -->
-
+	<div class="toggle-container">
+		<span class="label">Background</span>
+		<button class="toggle-button" class:active={darkBackground} onclick={() => darkBackground = !darkBackground}>
+			<span class="toggle-option" class:selected={darkBackground}>Dark</span>
+			<span class="toggle-option" class:selected={!darkBackground}>Light</span>
+		</button>
+	</div>
 	<hr />
-	<ThemeSelector bind:color={manualColor} />
-	<hr />
-	<ColorPickerHSV bind:color={manualColor} width={250} />
-
-	<hr />
-	<label style="display: flex; align-items: center; gap: 8px; color: white;">
-		<input type="checkbox" bind:checked={useDebugColors} />
-		Debug Colors
-	</label>
-
-	{#if useDebugColors}
-		<div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
-			<!-- Top -->
-			<details>
-				<summary style="cursor: pointer; color: white;">Top Color</summary>
-				<div style="margin-top: 5px;">
-					<ColorPickerHSV bind:color={debugColors.top} width={250} />
-				</div>
-			</details>
-			<!-- Bottom -->
-			<details>
-				<summary style="cursor: pointer; color: white;">Bottom Color</summary>
-				<div style="margin-top: 5px;">
-					<ColorPickerHSV bind:color={debugColors.bottom} width={250} />
-				</div>
-			</details>
-			<!-- Left -->
-			<details>
-				<summary style="cursor: pointer; color: white;">Left Color</summary>
-				<div style="margin-top: 5px;">
-					<ColorPickerHSV bind:color={debugColors.left} width={250} />
-				</div>
-			</details>
-			<!-- Right -->
-			<details>
-				<summary style="cursor: pointer; color: white;">Right Color</summary>
-				<div style="margin-top: 5px;">
-					<ColorPickerHSV bind:color={debugColors.right} width={250} />
-				</div>
-			</details>
-			<!-- Center -->
-			<details>
-				<summary style="cursor: pointer; color: white;">Center Color</summary>
-				<div style="margin-top: 5px;">
-					<ColorPickerHSV bind:color={debugColors.center} width={250} />
-				</div>
-			</details>
-
-			<hr />
-			<div style="color: white; font-size: 0.8em;">
-				<p>Current Configuration (Copy valid for JSON):</p>
-				<code style="display: block; background: #222; padding: 5px; user-select: text;">
-					{JSON.stringify(debugColors, null, 2)}
-				</code>
-			</div>
+	<div class="theme-selector">
+		<div class="label">Color Theme</div>
+		<div class="theme-buttons">
+			{#each Object.keys(themes) as theme}
+				<button 
+					class="theme-button" 
+					class:active={selectedTheme === theme}
+					onclick={() => selectedTheme = theme}
+				>
+					<span class="theme-name">{theme}</span>
+					<div class="theme-colors">
+						{#each themes[theme] as color}
+							<div class="color-dot" style="background-color: {color}"></div>
+						{/each}
+					</div>
+				</button>
+			{/each}
 		</div>
-	{/if}
+	</div>
+	<hr />
+	<ColorPickerJonas bind:color={customColor} width={250} />
 </div>
+
+<style>
+	.toggle-container {
+		width: 100%;
+		margin-bottom: 0.5rem;
+	}
+	
+	.toggle-button {
+		width: 100%;
+		height: 36px;
+		background: #2a2a2a;
+		border: 1px solid #444;
+		border-radius: 6px;
+		display: flex;
+		align-items: center;
+		padding: 3px;
+		gap: 3px;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+	
+	.toggle-option {
+		flex: 1;
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 4px;
+		font-size: 0.85rem;
+		color: #888;
+		transition: all 0.2s;
+	}
+	
+	.toggle-option.selected {
+		background: #444;
+		color: #fff;
+		font-weight: 500;
+	}
+	
+	.theme-selector {
+		width: 100%;
+		margin-bottom: 0.5rem;
+	}
+	
+	.label {
+		font-size: 0.75rem;
+		margin-top: 0;
+		margin-bottom: 0.5rem;
+		color: #ccc;
+	}
+	
+	.theme-buttons {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+	
+	.theme-button {
+		width: 100%;
+		height: 32px;
+		background: transparent;
+		border: none;
+		border-radius: 4px;
+		font-size: 0.85rem;
+		padding: 0 10px;
+		outline: none;
+		cursor: pointer;
+		color: #999;
+		transition: all 0.15s ease;
+		font-weight: 400;
+		text-align: left;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	
+	.theme-button:hover {
+		color: #ccc;
+		background: #333;
+	}
+	
+	.theme-button.active {
+		color: white;
+		background: #444;
+		font-weight: 500;
+	}
+	
+	.theme-name {
+		flex: 1;
+	}
+	
+	.theme-colors {
+		display: flex;
+		gap: 3px;
+	}
+	
+	.color-dot {
+		width: 16px;
+		height: 16px;
+		border-radius: 3px;
+		border: 1px solid #666;
+	}
+
+	/* ColorPicker Centering */
+	.sidebar-right :global(.container) {
+		margin-left: auto;
+		margin-right: auto;
+	}
+</style>

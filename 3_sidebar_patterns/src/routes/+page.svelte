@@ -22,7 +22,7 @@
 		{
 			name: 'Pattern 2',
 			component: Pattern2,
-			description: 'Standard VSC Pattern tilted by 45 degrees.'
+			description: 'Hybrid Pattern: Pattern 3 geometry with Pattern 1 mirroring.'
 		},
 		{
 			name: 'Pattern 3',
