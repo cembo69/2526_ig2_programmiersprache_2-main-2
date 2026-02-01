@@ -6,12 +6,11 @@
 	let tileWidth = $state(1230);
 	let tileHeight = $state(1230);
 
-	let tileCount = $state(10);
+	let tileCount = $state(5);
 	let tileCountX = $derived(tileCount);
 	let tileCountY = $derived(tileCount);
 	
 	// Offset controls
-	let offset = $state(-400);
 	let offsetX = $state(-50);
 	let offsetY = $state(-48);
 	let rotation = $state(0);
@@ -45,16 +44,6 @@
 
 	// Theme Picker Toggle
 	let showAllThemes = $state(false);
-
-	// Debug Panel
-	let showDebug = $state(false);
-
-	// Keyboard handler for debug panel
-	function handleKeydown(event) {
-		if (event.key === 'd' || event.key === 'D') {
-			showDebug = !showDebug;
-		}
-	}
 
 	// HSL Helper Functions
 	function hexToRgb(hex) {
@@ -123,8 +112,6 @@
 	let vbX = $derived(-vbW / 2);
 	let vbY = $derived(-vbH / 2);
 </script>
-
-<svelte:window onkeydown={handleKeydown} />
 
 <div class="svg-container">
 	<svg viewBox="{vbX} {vbY} {vbW} {vbH}" class="svg-canvas" preserveAspectRatio="xMidYMid meet">
@@ -223,8 +210,6 @@
 <div class="sidebar-right">
 	<Slider min={5} max={35} step={1} bind:value={tileCount} label="Tile Count" />
 	<hr />
-	<Slider min={-200} max={200} bind:value={offset} label="Tile Offset" />
-	<hr />
 	<div class="theme-selector">
 		<div class="label">Color Theme</div>
 		<div class="theme-buttons">
@@ -265,158 +250,6 @@
 	<hr />
 	<ColorPickerJonas bind:color={customColor} width={250} />
 </div>
-
-{#if showDebug}
-	<div class="debug-panel">
-		<div class="debug-header">
-			<h2>🐛 Debug Panel - Pattern 2 (Live Editing)</h2>
-			<button class="debug-close" onclick={() => showDebug = false}>✕</button>
-		</div>
-		<div class="debug-content">
-			<div class="debug-section">
-				<h3>🎨 Theme</h3>
-				<div class="debug-item">
-					<span class="debug-label">Theme:</span>
-					<select class="debug-select" bind:value={selectedTheme}>
-						{#each Object.keys(themes) as theme}
-							<option value={theme}>{theme}</option>
-						{/each}
-					</select>
-				</div>
-
-				<h3>🎨 Colors (Read-Only)</h3>
-				<div class="debug-item-single">
-					<span class="debug-label">Color 1:</span>
-					<span class="debug-value">{color1}</span>
-					<span class="color-preview-small" style="background-color: {color1}"></span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Color 2:</span>
-					<span class="debug-value">{color2}</span>
-					<span class="color-preview-small" style="background-color: {color2}"></span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Color 3:</span>
-					<span class="debug-value">{color3}</span>
-					<span class="color-preview-small" style="background-color: {color3}"></span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Color 4:</span>
-					<span class="debug-value">{color4}</span>
-					<span class="color-preview-small" style="background-color: {color4}"></span>
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>📐 Dimensions</h3>
-				<div class="debug-item">
-					<span class="debug-label">Tile Count:</span>
-					<input type="range" min="1" max="50" bind:value={tileCount} class="debug-slider" />
-					<input type="number" bind:value={tileCount} class="debug-number" />
-				</div>
-				<div class="debug-item">
-					<span class="debug-label">Tile Width:</span>
-					<input type="range" min="500" max="2000" step="10" bind:value={tileWidth} class="debug-slider" />
-					<input type="number" bind:value={tileWidth} class="debug-number" />
-				</div>
-				<div class="debug-item">
-					<span class="debug-label">Tile Height:</span>
-					<input type="range" min="500" max="2000" step="10" bind:value={tileHeight} class="debug-slider" />
-					<input type="number" bind:value={tileHeight} class="debug-number" />
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>🔧 Transform</h3>
-				<div class="debug-item">
-					<span class="debug-label">Offset (Linked):</span>
-					<input type="range" min="-500" max="500" step="10" bind:value={offset} class="debug-slider" />
-					<input type="number" bind:value={offset} class="debug-number" />
-				</div>
-				<div class="debug-item">
-					<span class="debug-label">Offset X:</span>
-					<input type="range" min="-500" max="500" step="10" bind:value={offsetX} class="debug-slider" />
-					<input type="number" bind:value={offsetX} class="debug-number" />
-				</div>
-				<div class="debug-item">
-					<span class="debug-label">Offset Y:</span>
-					<input type="range" min="-500" max="500" step="10" bind:value={offsetY} class="debug-slider" />
-					<input type="number" bind:value={offsetY} class="debug-number" />
-				</div>
-				<div class="debug-item">
-					<span class="debug-label">Rotation:</span>
-					<input type="range" min="0" max="360" bind:value={rotation} class="debug-slider" />
-					<input type="number" bind:value={rotation} class="debug-number" />
-				</div>
-				<div class="debug-item">
-					<span class="debug-label">Scale:</span>
-					<input type="range" min="0.1" max="3" step="0.1" bind:value={scale} class="debug-slider" />
-					<input type="number" step="0.1" bind:value={scale} class="debug-number" />
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>📏 Mirroring Info</h3>
-				<div class="debug-item-single">
-					<span class="debug-label">Pattern:</span>
-					<span class="debug-value">Alternating Mirror (X & Y)</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Odd Tiles X:</span>
-					<span class="debug-value">Flipped Horizontally</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Odd Tiles Y:</span>
-					<span class="debug-value">Flipped Vertically</span>
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>📊 Render Info (Read-Only)</h3>
-				<div class="debug-item-single">
-					<span class="debug-label">Render Tiles X:</span>
-					<span class="debug-value">{renderTileCountX}</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Render Tiles Y:</span>
-					<span class="debug-value">{renderTileCountY}</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Total Tiles:</span>
-					<span class="debug-value">{renderTileCountX * renderTileCountY}</span>
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>🖼️ ViewBox (Read-Only)</h3>
-				<div class="debug-item-single">
-					<span class="debug-label">ViewBox X:</span>
-					<span class="debug-value">{vbX.toFixed(2)}</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">ViewBox Y:</span>
-					<span class="debug-value">{vbY.toFixed(2)}</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">ViewBox Width:</span>
-					<span class="debug-value">{vbW.toFixed(2)}</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">ViewBox Height:</span>
-					<span class="debug-value">{vbH.toFixed(2)}</span>
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>ℹ️ Info</h3>
-				<div class="debug-item-single">
-					<span class="debug-label">Keyboard:</span>
-					<span class="debug-value">Press <kbd>D</kbd> to toggle</span>
-				</div>
-			</div>
-		</div>
-	</div>
-{/if}
 
 <style>
 	.toggle-container {
@@ -579,221 +412,5 @@
 	.sidebar-right :global(.container) {
 		margin-left: auto;
 		margin-right: auto;
-	}
-
-	/* Debug Panel Styles */
-	.debug-panel {
-		position: fixed;
-		top: 80px;
-		left: 50%;
-		transform: translateX(-50%);
-		width: 90vw;
-		max-width: 1400px;
-		height: 85vh;
-		background: rgba(20, 20, 20, 0.98);
-		border: 2px solid #00ff00;
-		border-radius: 12px;
-		z-index: 10000;
-		overflow: hidden;
-		box-shadow: 0 0 50px rgba(0, 255, 0, 0.3);
-		display: flex;
-		flex-direction: column;
-	}
-
-	.debug-header {
-		background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-		padding: 20px 30px;
-		border-bottom: 2px solid #00ff00;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.debug-header h2 {
-		margin: 0;
-		color: #00ff00;
-		font-size: 1.8rem;
-		font-weight: 600;
-		text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-	}
-
-	.debug-close {
-		background: #ff0000;
-		color: white;
-		border: none;
-		width: 40px;
-		height: 40px;
-		border-radius: 50%;
-		font-size: 1.5rem;
-		cursor: pointer;
-		transition: all 0.2s;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.debug-close:hover {
-		background: #ff3333;
-		transform: scale(1.1);
-	}
-
-	.debug-content {
-		flex: 1;
-		overflow-y: auto;
-		padding: 30px;
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-		gap: 25px;
-		align-content: start;
-	}
-
-	.debug-section {
-		background: rgba(30, 30, 30, 0.8);
-		border: 1px solid #333;
-		border-radius: 8px;
-		padding: 20px;
-	}
-
-	.debug-section h3 {
-		margin: 0 0 15px 0;
-		color: #00d4ff;
-		font-size: 1.2rem;
-		font-weight: 500;
-		border-bottom: 2px solid #00d4ff;
-		padding-bottom: 10px;
-	}
-
-	.debug-item {
-		display: grid;
-		grid-template-columns: 150px 1fr auto;
-		gap: 10px;
-		align-items: center;
-		padding: 10px 0;
-		border-bottom: 1px solid #2a2a2a;
-		font-family: 'Courier New', monospace;
-	}
-
-	.debug-item:last-child {
-		border-bottom: none;
-	}
-
-	.debug-item-single {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 10px 0;
-		border-bottom: 1px solid #2a2a2a;
-		font-family: 'Courier New', monospace;
-	}
-
-	.debug-item-single:last-child {
-		border-bottom: none;
-	}
-
-	.debug-label {
-		color: #aaa;
-		font-size: 0.95rem;
-		font-weight: 500;
-	}
-
-	.debug-value {
-		color: #00ff00;
-		font-size: 1rem;
-		font-weight: 600;
-		display: flex;
-		align-items: center;
-		gap: 10px;
-	}
-
-	.color-preview-small {
-		display: inline-block;
-		width: 30px;
-		height: 30px;
-		border-radius: 4px;
-		border: 2px solid #666;
-	}
-
-	kbd {
-		background: #333;
-		border: 1px solid #555;
-		border-radius: 4px;
-		padding: 3px 8px;
-		font-family: monospace;
-		font-size: 0.9rem;
-		color: #fff;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-	}
-
-	/* Debug Controls */
-	.debug-select {
-		background: #2a2a2a;
-		border: 1px solid #555;
-		border-radius: 4px;
-		color: #00ff00;
-		padding: 6px 12px;
-		font-size: 1rem;
-		font-family: monospace;
-		cursor: pointer;
-		grid-column: 2 / 4;
-	}
-
-	.debug-select:focus {
-		outline: none;
-		border-color: #00ff00;
-		box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
-	}
-
-	.debug-slider {
-		height: 6px;
-		background: #333;
-		border-radius: 3px;
-		outline: none;
-		-webkit-appearance: none;
-	}
-
-	.debug-slider::-webkit-slider-thumb {
-		-webkit-appearance: none;
-		appearance: none;
-		width: 16px;
-		height: 16px;
-		background: #00ff00;
-		border-radius: 50%;
-		cursor: pointer;
-		box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
-	}
-
-	.debug-slider::-moz-range-thumb {
-		width: 16px;
-		height: 16px;
-		background: #00ff00;
-		border-radius: 50%;
-		cursor: pointer;
-		border: none;
-		box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
-	}
-
-	.debug-number {
-		background: #2a2a2a;
-		border: 1px solid #555;
-		border-radius: 4px;
-		color: #00ff00;
-		padding: 6px 10px;
-		font-size: 0.95rem;
-		font-family: monospace;
-		width: 80px;
-		text-align: center;
-	}
-
-	.debug-number:focus {
-		outline: none;
-		border-color: #00ff00;
-		box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
-	}
-
-	/* Remove arrows from number inputs */
-	.debug-number::-webkit-inner-spin-button,
-	.debug-number::-webkit-outer-spin-button {
-		-webkit-appearance: none;
-		margin: 0;
 	}
 </style>
