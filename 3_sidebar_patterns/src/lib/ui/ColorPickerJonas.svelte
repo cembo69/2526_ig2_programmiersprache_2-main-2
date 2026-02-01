@@ -14,8 +14,25 @@
   const toHSV = converter("okhsv");
   const toRGB = converter("rgb");
 
-  // internal hsv state (h: 0..360, s:0..1, v:0..1)
-  let hsvValues = $state([0, 1, 1]);
+  // Moonlight theme first color as default
+  const defaultColor = "#6D9BC3";
+  
+  // Parse default color to get initial HSV values
+  function getInitialHSV() {
+    const parsed = parse(defaultColor);
+    if (parsed) {
+      const okhsv = toHSV(parsed);
+      return [
+        okhsv.h ?? 0,
+        okhsv.s ?? 0,
+        okhsv.v ?? 0
+      ];
+    }
+    return [0, 1, 1];
+  }
+
+  // internal hsv state (h: 0..360, s:0..1, v:0..1) - initialized with Moonlight color
+  let hsvValues = $state(getInitialHSV());
   let alpha = $state(1);
 
   // guards to avoid cycles when writing back to `color`
@@ -67,7 +84,10 @@
   // when parent updates `color`, parse and update internal hsv (prop -> internal)
   $effect(() => {
     const normalized = normalizeColorString(color);
-    if (normalized == null) return;
+    if (normalized == null) {
+      // If color is null, just keep default HSV values
+      return;
+    }
 
     // If we recently wrote the color ourselves, clear the guard first.
     // But only short-circuit if the incoming value equals the last value we produced.
@@ -140,6 +160,13 @@
 >
   <SliderSV bind:hsvValues {width} height={height} />
   <SliderH bind:hsvValues {width} />
+  <input 
+    type="text" 
+    readonly 
+    value={color || '#000000'} 
+    class="hex-display"
+    onclick={(e) => e.target.select()}
+  />
 </div>
 
 <style>
@@ -153,5 +180,24 @@
     box-sizing: border-box;
     line-height: 1; /* verhindern, dass font-baseline die Höhe verschiebt */
     font-size: inherit;
+  }
+  
+  .hex-display {
+    width: 100%;
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #fff;
+    font-family: monospace;
+    font-size: 0.9rem;
+    text-align: center;
+    cursor: pointer;
+  }
+  
+  .hex-display:focus {
+    outline: 2px solid #666;
+    background: #333;
   }
 </style>

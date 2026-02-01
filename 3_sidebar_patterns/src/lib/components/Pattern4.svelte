@@ -2,22 +2,19 @@
 	import Slider from '$lib/ui/Slider.svelte';
 	import ColorPickerJonas from '$lib/ui/ColorPickerJonas.svelte';
 
-	// Tile-Dimensionen aus Pattern 3
-	let tileWidth = $state(1230);
-	let tileHeight = $state(1230);
-
 	let tileCount = $state(10);
 	let tileCountX = $derived(tileCount);
 	let tileCountY = $derived(tileCount);
-	
-	// Offset controls
-	let offset = $state(-400);
-	let offsetX = $state(-50);
-	let offsetY = $state(-48);
-	let rotation = $state(0);
-	let scale = $state(1);
 
-	// Theme definitions - genau wie in Pattern 3
+	// Editable values
+	let offsetX = $state(-300);
+	let offsetY = $state(-300);
+	let tileWidth = $state(1569);
+	let tileHeight = $state(1569);
+	let scale = $state(1.25);
+	let rotation = $state(0);
+
+	// Theme definitions
 	const themes = {
 		'Moonlight': ['#6D9BC3', '#C0C0C0', '#003366', '#2F3C45'],
 		'Senegal': ['#E60012', '#FFD700', '#006747', '#2A2A2A'],
@@ -32,9 +29,9 @@
 	let selectedTheme = $state('Moonlight');
 	
 	// Custom Color für ColorPicker
-	let customColor = $state('#5ac07e');
+	let customColor = $state('#ff8de4');
 	
-	// 4 Farben für verschiedene Pattern-Bereiche
+	// 4 Farben für die Parallelogramme - werden durch Theme gesetzt
 	let color1 = $derived(themes[selectedTheme][0]);
 	let color2 = $derived(themes[selectedTheme][1]);
 	let color3 = $derived(themes[selectedTheme][2]);
@@ -103,21 +100,27 @@
 		return rgbToHsl(rgb.r, rgb.g, rgb.b);
 	}
 
-	// Positionierungslogik - angepasst für keine Überlappung
-	// Die Tiles müssen genau nebeneinander platziert werden
+	// Standard positioning logic - von innen nach außen
 	function calculatePosition(index, count, size, gap) {
-		// Einfache Berechnung: jede Tile bekommt ihre Position basierend auf Index
-		return (index - count / 2) * size + (index - count / 2) * gap;
+		const basePosition = (index - count / 2) * size;
+		const offsetPosition = (index - count / 2 + 0.5) * gap;
+		return basePosition + offsetPosition;
 	}
+
+	// Simple ViewBox calculation
+	const adjustedOffsetX = $derived(offsetX);
+	const adjustedOffsetY = $derived(offsetY);
 
 	// Add extra tiles to ensure canvas is always filled
 	const extraTiles = 8;
 	const renderTileCountX = $derived(tileCountX + extraTiles);
 	const renderTileCountY = $derived(tileCountY + extraTiles);
 
-	let totalWidth = $derived(renderTileCountX * tileWidth + (renderTileCountX - 1) * offsetX);
-	let totalHeight = $derived(renderTileCountY * tileHeight + (renderTileCountY - 1) * offsetY);
+	// Berechne die tatsächliche Breite/Höhe basierend auf der neuen Positionierungslogik
+	let totalWidth = $derived(renderTileCountX * tileWidth + (renderTileCountX - 1) * adjustedOffsetX);
+	let totalHeight = $derived(renderTileCountY * tileHeight + (renderTileCountY - 1) * adjustedOffsetY);
 
+	// Minimal padding
 	let vbW = $derived(totalWidth);
 	let vbH = $derived(totalHeight);
 	let vbX = $derived(-vbW / 2);
@@ -133,9 +136,8 @@
 		
 		{#each Array(renderTileCountY) as _, yi}
 			{#each Array(renderTileCountX) as _, xi}
-				<!-- Spiegel-Logik aus Pattern 1 -->
-				{@const scaleX = xi % 2 !== 0 ? -1 : 1}
-				{@const scaleY = yi % 2 !== 0 ? -1 : 1}
+				{@const scaleX = 1}
+				{@const scaleY = 1}
 
 				{@const posX = calculatePosition(xi, renderTileCountX, tileWidth, offsetX)}
 				{@const posY = calculatePosition(yi, renderTileCountY, tileHeight, offsetY)}
@@ -172,7 +174,6 @@
 					transform="translate({finalX}, {finalY}) scale({scaleX}, {scaleY}) rotate({rotation} {tileWidth /
 						2} {tileHeight / 2}) scale({scale})"
 				>
-					<!-- Geometrie aus Pattern 3 -->
 					<!-- Center Hexagon - Schwarz -->
 					<polygon
 						points="756.18,776.73 535.74,807.77 389.68,620.85 478.46,401.13 700.06,369.96 844.91,556.84"
@@ -203,16 +204,16 @@
 						fill={usedColor4}
 					/>
 
-					<!-- Bottom arm - Farbe 2 (wiederholt) -->
+					<!-- Bottom arm - Weiß -->
 					<polygon
 						points="213.84,1051.32 296.52,846.48 754.02,782.17 671.3,987.01"
-						fill={usedColor2}
+						fill="#ffffff"
 					/>
 
-					<!-- Left arm - Farbe 4 (wiederholt) -->
+					<!-- Left arm - Farbe 1 (wiederholt) -->
 					<polygon
 						points="529.89,808.51 296,841.47 9.4,467.2 236.8,441.32 385.02,623.01"
-						fill={usedColor4}
+						fill={usedColor1}
 					/>
 				</g>
 			{/each}
@@ -221,9 +222,7 @@
 </div>
 
 <div class="sidebar-right">
-	<Slider min={5} max={35} step={1} bind:value={tileCount} label="Tile Count" />
-	<hr />
-	<Slider min={-200} max={200} bind:value={offset} label="Tile Offset" />
+	<Slider min={1} max={25} step={1} bind:value={tileCount} label="Tile Count" />
 	<hr />
 	<div class="theme-selector">
 		<div class="label">Color Theme</div>
@@ -269,7 +268,7 @@
 {#if showDebug}
 	<div class="debug-panel">
 		<div class="debug-header">
-			<h2>🐛 Debug Panel - Pattern 2 (Live Editing)</h2>
+			<h2>🐛 Debug Panel - Pattern 3 (Live Editing)</h2>
 			<button class="debug-close" onclick={() => showDebug = false}>✕</button>
 		</div>
 		<div class="debug-content">
@@ -283,7 +282,9 @@
 						{/each}
 					</select>
 				</div>
+			</div>
 
+			<div class="debug-section">
 				<h3>🎨 Colors (Read-Only)</h3>
 				<div class="debug-item-single">
 					<span class="debug-label">Color 1:</span>
@@ -329,11 +330,6 @@
 			<div class="debug-section">
 				<h3>🔧 Transform</h3>
 				<div class="debug-item">
-					<span class="debug-label">Offset (Linked):</span>
-					<input type="range" min="-500" max="500" step="10" bind:value={offset} class="debug-slider" />
-					<input type="number" bind:value={offset} class="debug-number" />
-				</div>
-				<div class="debug-item">
 					<span class="debug-label">Offset X:</span>
 					<input type="range" min="-500" max="500" step="10" bind:value={offsetX} class="debug-slider" />
 					<input type="number" bind:value={offsetX} class="debug-number" />
@@ -352,22 +348,6 @@
 					<span class="debug-label">Scale:</span>
 					<input type="range" min="0.1" max="3" step="0.1" bind:value={scale} class="debug-slider" />
 					<input type="number" step="0.1" bind:value={scale} class="debug-number" />
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>📏 Mirroring Info</h3>
-				<div class="debug-item-single">
-					<span class="debug-label">Pattern:</span>
-					<span class="debug-value">Alternating Mirror (X & Y)</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Odd Tiles X:</span>
-					<span class="debug-value">Flipped Horizontally</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Odd Tiles Y:</span>
-					<span class="debug-value">Flipped Vertically</span>
 				</div>
 			</div>
 
@@ -460,20 +440,17 @@
 		width: 100%;
 		margin-bottom: 0.5rem;
 	}
-	
 	.label {
 		font-size: 0.75rem;
 		margin-top: 0;
 		margin-bottom: 0.5rem;
 		color: #ccc;
 	}
-	
 	.theme-buttons {
 		display: flex;
 		flex-direction: column;
 		gap: 3px;
 	}
-	
 	.theme-button {
 		width: 100%;
 		height: 32px;
@@ -491,19 +468,17 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		position: relative;
 	}
-	
 	.theme-button:hover {
 		color: #ccc;
 		background: #333;
 	}
-	
 	.theme-button.active {
 		color: white;
 		background: #444;
 		font-weight: 500;
 	}
-	
 	.expand-arrow {
 		margin-left: 8px;
 		font-size: 10px;
@@ -529,6 +504,7 @@
 		border-radius: 3px;
 		border: 1px solid #666;
 	}
+
 	.custom-color-btn {
 		width: 100%;
 		height: 36px;
@@ -575,6 +551,7 @@
 		background: #333;
 		color: #fff;
 	}
+
 	/* ColorPicker Centering */
 	.sidebar-right :global(.container) {
 		margin-left: auto;

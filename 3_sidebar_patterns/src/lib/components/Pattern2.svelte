@@ -1,31 +1,39 @@
 <script>
 	import Slider from '$lib/ui/Slider.svelte';
+	import ColorPickerJonas from '$lib/ui/ColorPickerJonas.svelte';
 
-	// Tile-Dimensionen aus Pattern 3
-	let tileWidth = $state(1230);
-	let tileHeight = $state(1230);
+	// Reduced dimensions for a single unit
+	const baseTileWidth = 703.8;
+	const baseTileHeight = 702;
 
-	let tileCount = $state(10);
+	let tileCount = $state(5);
 	let tileCountX = $derived(tileCount);
 	let tileCountY = $derived(tileCount);
 	
-	// Offset controls
-	let offset = $state(-400);
-	let offsetX = $state(-50);
-	let offsetY = $state(-48);
-	let rotation = $state(0);
-	let scale = $state(1);
+	// Offset controls rotation
+	let offset = $state(135);
+	const offsetX = $derived(offset);
+	const offsetY = $derived(offset);
+	const rotation = $derived(174 + (offset - 10) * (26 / 190));
+	const scale = 1;
+	const meshTightness = 0;
 
 	// Theme definitions - genau wie in Pattern 3
 	const themes = {
-		'Tron': ['#00D2FF', '#39FF14', '#FF073A', '#1B1B1B'],
-		'Chinatown': ['#E60012', '#FFD700', '#006747', '#2A2A2A'],
+		'Moonlight': ['#6D9BC3', '#C0C0C0', '#003366', '#2F3C45'],
+		'Senegal': ['#E60012', '#FFD700', '#006747', '#2A2A2A'],
 		'Forest': ['#228B22', '#8A9A5B', '#A67C52', '#6B4F2A'],
 		'Miami': ['#00B5B8', '#FF6F61', '#FFDD00', '#F1F1F1'],
-		'Moonlight': ['#6D9BC3', '#C0C0C0', '#003366', '#2F3C45']
+		'Amber Glow': ['#FFB000', '#FF8C42', '#D96C2C', '#A94A1F'],
+		'Neon Party': ['#FF2EC4', '#7B5CFF', '#2EE6FF', '#00FF9C'],
+		'Electric Sunset': ['#FF4E00', '#FF9500', '#FFB703', '#8338EC'],
+		'Cosmic Candy': ['#FF61D2', '#9B5DE5', '#00BBF9', '#00F5D4']
 	};
 
 	let selectedTheme = $state('Moonlight');
+	
+	// Custom Color für ColorPicker
+	let customColor = $state('#ffccc9');
 	
 	// 4 Farben für verschiedene Pattern-Bereiche
 	let color1 = $derived(themes[selectedTheme][0]);
@@ -33,106 +41,281 @@
 	let color3 = $derived(themes[selectedTheme][2]);
 	let color4 = $derived(themes[selectedTheme][3]);
 	
+	// Basis-Farbe für HSL-Berechnungen - nutzt customColor wenn gesetzt, sonst color1
+	let baseColor = $derived(customColor || color1);
+	
+	// Kontrast-Steuerung für 3D-Effekt
+	const contrast = 0.8;
+	
 	// Hintergrund Toggle
 	let darkBackground = $state(true);
 	let backgroundColor = $derived(darkBackground ? '#000000' : '#ffffff');
 
-	// Debug Panel
-	let showDebug = $state(false);
+	// Theme Picker Toggle
+	let showAllThemes = $state(false);
 
-	// Keyboard handler for debug panel
-	function handleKeydown(event) {
-		if (event.key === 'd' || event.key === 'D') {
-			showDebug = !showDebug;
+	// HSL Helper Functions
+	function hexToRgb(hex) {
+		const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+		return result
+			? {
+					r: parseInt(result[1], 16),
+					g: parseInt(result[2], 16),
+					b: parseInt(result[3], 16)
+				}
+			: { r: 0, g: 0, b: 0 };
+	}
+
+	function rgbToHsl(r, g, b) {
+		r /= 255;
+		g /= 255;
+		b /= 255;
+		const max = Math.max(r, g, b),
+			min = Math.min(r, g, b);
+		let h,
+			s,
+			l = (max + min) / 2;
+		if (max === min) {
+			h = s = 0;
+		} else {
+			const d = max - min;
+			s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+			switch (max) {
+				case r:
+					h = (g - b) / d + (g < b ? 6 : 0);
+					break;
+				case g:
+					h = (b - r) / d + 2;
+					break;
+				case b:
+					h = (r - g) / d + 4;
+					break;
+			}
+			h /= 6;
 		}
+		return { h: h * 360, s: s * 100, l: l * 100 };
 	}
 
-	// Positionierungslogik - angepasst für keine Überlappung
-	// Die Tiles müssen genau nebeneinander platziert werden
+	// Determine max distance for normalization (center to corner)
+	// Distance from center index (0) to corner index (count/2)
+	// Actually, simple Euclidean distance in index-space works well.
+	let maxDist = $derived(Math.sqrt(Math.pow(tileCountX / 2, 2) + Math.pow(tileCountY / 2, 2)));
+
+	// User's requested center-out logic with rotation compensation
 	function calculatePosition(index, count, size, gap) {
-		// Einfache Berechnung: jede Tile bekommt ihre Position basierend auf Index
-		return (index - count / 2) * size + (index - count / 2) * gap;
+		const rotationFactor = Math.abs(rotation - 180) / 26;
+		const rotationCompensation = 1 - rotationFactor * 0.3;
+		const adjustedGap = gap * rotationCompensation;
+		const effectiveSize = size + adjustedGap;
+		return (index - count / 2) * effectiveSize;
 	}
+
+	// Helper to get HSL object directly from hex
+	function getHslFromHex(hex) {
+		const rgb = hexToRgb(hex);
+		return rgbToHsl(rgb.r, rgb.g, rgb.b);
+	}
+
+	function darkenHex(hex, amount) {
+		const h = getHslFromHex(hex);
+		return `hsl(${h.h}, ${h.s}%, ${Math.max(8, h.l - amount)}%)`;
+	}
+
+	// Dynamic ViewBox calculation?
+	// User used fixed -500 -500 1000 1000 in snippet, but the tiles here are huge (700px).
+	// Let's make the viewBox large enough or reactive.
+	// If we want it to "grow from center", a fixed large viewBox is best, OR a reactive centered one.
+	// Let's try a reactive one that ensures the whole pattern is visible, centered on 0,0.
+
+	// Total width/height with rotation compensation
+	const rotationFactor = $derived(Math.abs(rotation - 180) / 26);
+	const rotationCompensation = $derived(1 - rotationFactor * 0.3);
+	const adjustedOffsetX = $derived(offsetX * rotationCompensation);
+	const adjustedOffsetY = $derived(offsetY * rotationCompensation);
 
 	// Add extra tiles to ensure canvas is always filled
 	const extraTiles = 8;
 	const renderTileCountX = $derived(tileCountX + extraTiles);
 	const renderTileCountY = $derived(tileCountY + extraTiles);
 
-	let totalWidth = $derived(renderTileCountX * tileWidth + (renderTileCountX - 1) * offsetX);
-	let totalHeight = $derived(renderTileCountY * tileHeight + (renderTileCountY - 1) * offsetY);
+	let totalWidth = $derived(renderTileCountX * baseTileWidth + renderTileCountX * adjustedOffsetX);
+	let totalHeight = $derived(
+		renderTileCountY * baseTileHeight + renderTileCountY * adjustedOffsetY
+	);
 
+	// Minimal padding
 	let vbW = $derived(totalWidth);
 	let vbH = $derived(totalHeight);
 	let vbX = $derived(-vbW / 2);
 	let vbY = $derived(-vbH / 2);
-</script>
 
-<svelte:window onkeydown={handleKeydown} />
+	const colors = {
+		get fill0() {
+			return color0;
+		},
+		get fill1() {
+			return color1;
+		},
+		get fill2() {
+			return color2;
+		}
+	};
+
+	// Standardized Coordinates to ensure perfect mating of edges
+	// We make these Dynamic based on meshTightness
+	// Original Core Ratio was approx 0.66.
+	// meshTightness 0 -> Original (0.66).
+	// meshTightness 1 -> Very Tight (Small Core, e.g. 0.3).
+
+	let coreRatio = $derived(0.66 - meshTightness * 0.4);
+
+	// Core Dimensions - Proportional Scaling
+	// To preserve the "Grundform" (Basic Shape) without deformation,
+	// the Inner Square MUST scale proportionally with the Outer Tile.
+	let dynamicW = $derived(baseTileWidth * coreRatio);
+	let dynamicH = $derived(baseTileHeight * coreRatio);
+
+	// Center Point
+	const cx = baseTileWidth / 2;
+	const cy = baseTileHeight / 2;
+
+	// The central rectangle is the anchor.
+	let x_rect_L = $derived(cx - dynamicW / 2);
+	let x_rect_R = $derived(cx + dynamicW / 2);
+	let y_rect_T = $derived(cy - dynamicH / 2);
+	let y_rect_B = $derived(cy + dynamicH / 2);
+
+	let rect_W = $derived(x_rect_R - x_rect_L);
+	let rect_H = $derived(y_rect_B - y_rect_T);
+
+	// Outer limits based on original paths
+	const y_top = 33.0;
+	const y_bottom = 669.0;
+	const x_left = 34.6;
+	const x_right = 668.6; // Consistent with right piece width
+	const x_extreme_right = 703.6; // For the top piece extension
+
+	// Derived Points for Shapes
+	// We adjust the diagonal connecting points using the new CORE corners.
+
+	// Overlap amount to extend under the rectangle
+	const overlap = 2.0;
+
+	// Note: The "Outer" points (like x_left, y_top etc) stay fixed so the tile outer size is stable.
+	// The "Inner" points (x_rect_...) move. The diagonals connecting Outer to Inner will change angle.
+
+	// Top Piece (fill1 - Dark Red)
+	// Outer Path + Tab under Rect
+	// Start TR Corner -> Tab In -> Tab Left -> TL Corner -> Outer...
+	let p_top = $derived(`
+        M ${x_rect_R} ${y_rect_T} 
+        L ${x_rect_R} ${y_rect_T + overlap} 
+        L ${x_rect_L} ${y_rect_T + overlap} 
+        L ${x_rect_L} ${y_rect_T} 
+        L 243.1 ${y_top} 
+        H ${x_extreme_right} 
+        L ${x_rect_R} ${y_rect_T} 
+        Z`);
+
+	// Right Piece (fill0 - Light Red)
+	// Start BR Corner -> Tab In -> Tab Up -> TR Corner -> Outer...
+	let p_right = $derived(`
+        M ${x_rect_R} ${y_rect_B}
+        L ${x_rect_R - overlap} ${y_rect_B}
+        L ${x_rect_R - overlap} ${y_rect_T}
+        L ${x_rect_R} ${y_rect_T}
+        L ${x_right} 241.5
+        L ${x_right} 702
+        L ${x_rect_R} ${y_rect_B}
+        Z`);
+
+	// Bottom Piece (fill0 - Light Red)
+	// Start BL Corner -> Tab In -> Tab Right -> BR Corner -> Outer...
+	let p_bottom = $derived(`
+        M ${x_rect_L} ${y_rect_B}
+        L ${x_rect_L} ${y_rect_B - overlap}
+        L ${x_rect_R} ${y_rect_B - overlap}
+        L ${x_rect_R} ${y_rect_B}
+        L 460.5 ${y_bottom}
+        H 0
+        L ${x_rect_L} ${y_rect_B}
+        Z`);
+
+	// Left Piece (fill0 - Light Red)
+	// Start TL Corner -> Tab In -> Tab Down -> BL Corner -> Outer...
+	let p_left = $derived(`
+        M ${x_rect_L} ${y_rect_T}
+        L ${x_rect_L + overlap} ${y_rect_T}
+        L ${x_rect_L + overlap} ${y_rect_B}
+        L ${x_rect_L} ${y_rect_B}
+        L ${x_left} 460.5
+        L ${x_left} 0
+        L ${x_rect_L} ${y_rect_T}
+        Z`);
+</script>
 
 <div class="svg-container">
 	<svg viewBox="{vbX} {vbY} {vbW} {vbH}" class="svg-canvas" preserveAspectRatio="xMidYMid meet">
 		<!-- Background Rectangle -->
 		<rect x="{vbX}" y="{vbY}" width="{vbW}" height="{vbH}" fill="{backgroundColor}" />
-		
 		{#each Array(renderTileCountY) as _, yi}
 			{#each Array(renderTileCountX) as _, xi}
-				<!-- Spiegel-Logik aus Pattern 1 -->
 				{@const scaleX = xi % 2 !== 0 ? -1 : 1}
 				{@const scaleY = yi % 2 !== 0 ? -1 : 1}
 
-				{@const posX = calculatePosition(xi, renderTileCountX, tileWidth, offsetX)}
-				{@const posY = calculatePosition(yi, renderTileCountY, tileHeight, offsetY)}
+				{@const posX = calculatePosition(xi, renderTileCountX, baseTileWidth, offsetX)}
+				{@const posY = calculatePosition(yi, renderTileCountY, baseTileHeight, offsetY)}
 
-				{@const finalX = posX + (scaleX === -1 ? tileWidth : 0)}
-				{@const finalY = posY + (scaleY === -1 ? tileHeight : 0)}
+			{@const finalX = posX + (scaleX === -1 ? baseTileWidth : 0)}
+			{@const finalY = posY + (scaleY === -1 ? baseTileHeight : 0)}
 
-				<g
-					transform="translate({finalX}, {finalY}) scale({scaleX}, {scaleY}) rotate({rotation} {tileWidth /
-						2} {tileHeight / 2}) scale({scale})"
-				>
-					<!-- Geometrie aus Pattern 3 -->
-					<!-- Center Hexagon - Schwarz -->
-					<polygon
-						points="756.18,776.73 535.74,807.77 389.68,620.85 478.46,401.13 700.06,369.96 844.91,556.84"
-						fill="#000000"
-					/>
+			<!-- Modus: CustomColor verwendet HSL-Hierarchie, Theme verwendet direkte Farben -->
+			{@const getHierarchyColors = (base) => {
+				const hsl = getHslFromHex(base);
+				const h = hsl.h;
+				const s = hsl.s;
+				const topL = hsl.l;
+				const leftL = Math.max(0, topL - (8 * contrast));
+				const rightL = Math.max(0, topL - (42 * contrast));
+				const bottomL = Math.max(0, topL - (45 * contrast));
+				const centerL = Math.max(0, topL - (75 * contrast));
+				return {
+					cTop: `hsl(${h}, ${s}%, ${topL}%)`,
+					cLeft: `hsl(${h}, ${s}%, ${leftL}%)`,
+					cRight: `hsl(${h}, ${s}%, ${rightL}%)`,
+					cBottom: `hsl(${h}, ${s}%, ${bottomL}%)`,
+					cCenter: `hsl(${h}, ${s}%, ${centerL}%)`
+				};
+			}}
 
-					<!-- Top arm - Farbe 1 -->
-					<polygon
-						points="474.73,396.97 386.08,616.36 240.73,438.22 415.28,9.63 556.43,180.08"
-						fill={color1}
-					/>
+			{@const hierarchyColors = customColor ? getHierarchyColors(customColor) : null}
 
-					<!-- Top-right arm - Farbe 2 -->
-					<polygon
-						points="927.28,332.93 480.55,395.73 561.03,182.01 1017.2,117.87"
-						fill={color2}
-					/>
+			<!-- Theme-Farben für die einzelnen Formen (wenn kein customColor) -->
+			{@const cTop = customColor ? hierarchyColors.cTop : color1}
+			{@const cRight = customColor ? hierarchyColors.cRight : color2}
+			{@const cBottom = customColor ? hierarchyColors.cBottom : color3}
+			{@const cLeft = customColor ? hierarchyColors.cLeft : color4}
+			{@const cCenter = customColor ? hierarchyColors.cCenter : '#000000'}
 
-					<!-- Right arm - Farbe 3 -->
-					<polygon
-						points="1219.94,711.58 996.74,743.02 705.8,369.17 927.98,337.91"
-						fill={color3}
-					/>
+			<!-- Korrektur für Spiegelung -->
+			{@const visualCTop = scaleY === -1 ? cBottom : cTop}
+			{@const visualCBottom = scaleY === -1 ? cTop : cBottom}
+			{@const visualCLeft = scaleX === -1 ? cRight : cLeft}
+			{@const visualCRight = scaleX === -1 ? cLeft : cRight}
 
-					<!-- Bottom-right arm - Farbe 4 -->
-					<polygon
-						points="816.31,1168.5 675.95,988.88 762.56,774.3 848.7,561.01 992.68,745.95"
-						fill={color4}
-					/>
+			<g
+				transform="translate({finalX}, {finalY}) scale({scaleX}, {scaleY}) rotate({rotation} {baseTileWidth /
+					2} {baseTileHeight / 2}) scale({scale})"
+			>
+					<!-- Surrounding Shapes FIRST (Behind) -->
+					<!-- Use the corrected 'visual' colors for the geometric paths -->
+					<path d={p_bottom} fill={visualCBottom} id="Bottom" />
+					<path d={p_top} fill={visualCTop} id="Top" />
+					<path d={p_left} fill={visualCLeft} id="Left" />
+					<path d={p_right} fill={visualCRight} id="Right" />
 
-					<!-- Bottom arm - Weiß -->
-					<polygon
-						points="213.84,1051.32 296.52,846.48 754.02,782.17 671.3,987.01"
-						fill="#ffffff"
-					/>
-
-					<!-- Left arm - Farbe 1 (wiederholt) -->
-					<polygon
-						points="529.89,808.51 296,841.47 9.4,467.2 236.8,441.32 385.02,623.01"
-						fill={color1}
-					/>
+					<!-- Rect LAST (On Top) -->
+					<rect fill={cCenter} x={x_rect_L} y={y_rect_T} width={rect_W} height={rect_H} />
 				</g>
 			{/each}
 		{/each}
@@ -142,7 +325,7 @@
 <div class="sidebar-right">
 	<Slider min={5} max={35} step={1} bind:value={tileCount} label="Tile Count" />
 	<hr />
-	<Slider min={-200} max={200} bind:value={offset} label="Tile Offset" />
+	<Slider min={6} max={135} bind:value={offset} label="Tile Offset / Rotation" />
 	<hr />
 	<div class="toggle-container">
 		<span class="label">Background</span>
@@ -155,184 +338,43 @@
 	<div class="theme-selector">
 		<div class="label">Color Theme</div>
 		<div class="theme-buttons">
-			{#each Object.keys(themes) as theme}
-				<button 
-					class="theme-button" 
-					class:active={selectedTheme === theme}
-					onclick={() => selectedTheme = theme}
-				>
-					<span class="theme-name">{theme}</span>
-					<div class="theme-colors">
-						{#each themes[theme] as color}
-							<div class="color-dot" style="background-color: {color}"></div>
-						{/each}
-					</div>
-				</button>
-			{/each}
+			<!-- Aktives Theme immer anzeigen -->
+			<button 
+				class="theme-button active"
+				onclick={() => showAllThemes = !showAllThemes}
+			>
+				<span class="theme-name">{selectedTheme}</span>
+				<div class="theme-colors">
+					{#each themes[selectedTheme] as color}
+						<div class="color-dot" style="background-color: {color}"></div>
+					{/each}
+				</div>
+				<span class="expand-arrow" class:expanded={showAllThemes}>▼</span>
+			</button>
+			
+			<!-- Andere Themes ausklappbar -->
+			{#if showAllThemes}
+				{#each Object.keys(themes) as theme}
+					{#if theme !== selectedTheme}
+						<button 
+							class="theme-button"
+							onclick={() => { selectedTheme = theme; customColor = null; showAllThemes = false; }}
+						>
+							<span class="theme-name">{theme}</span>
+							<div class="theme-colors">
+								{#each themes[theme] as color}
+									<div class="color-dot" style="background-color: {color}"></div>
+								{/each}
+							</div>
+						</button>
+					{/if}
+				{/each}
+			{/if}
 		</div>
 	</div>
+	<hr />
+	<ColorPickerJonas bind:color={customColor} width={250} />
 </div>
-
-{#if showDebug}
-	<div class="debug-panel">
-		<div class="debug-header">
-			<h2>🐛 Debug Panel - Pattern 2 (Live Editing)</h2>
-			<button class="debug-close" onclick={() => showDebug = false}>✕</button>
-		</div>
-		<div class="debug-content">
-			<div class="debug-section">
-				<h3>🎨 Theme</h3>
-				<div class="debug-item">
-					<span class="debug-label">Theme:</span>
-					<select class="debug-select" bind:value={selectedTheme}>
-						{#each Object.keys(themes) as theme}
-							<option value={theme}>{theme}</option>
-						{/each}
-					</select>
-				</div>
-				<div class="debug-item">
-					<span class="debug-label">Background:</span>
-					<select class="debug-select" bind:value={darkBackground}>
-						<option value={true}>Dark</option>
-						<option value={false}>Light</option>
-					</select>
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>🎨 Colors (Read-Only)</h3>
-				<div class="debug-item-single">
-					<span class="debug-label">Color 1:</span>
-					<span class="debug-value">{color1}</span>
-					<span class="color-preview-small" style="background-color: {color1}"></span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Color 2:</span>
-					<span class="debug-value">{color2}</span>
-					<span class="color-preview-small" style="background-color: {color2}"></span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Color 3:</span>
-					<span class="debug-value">{color3}</span>
-					<span class="color-preview-small" style="background-color: {color3}"></span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Color 4:</span>
-					<span class="debug-value">{color4}</span>
-					<span class="color-preview-small" style="background-color: {color4}"></span>
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>📐 Dimensions</h3>
-				<div class="debug-item">
-					<span class="debug-label">Tile Count:</span>
-					<input type="range" min="1" max="50" bind:value={tileCount} class="debug-slider" />
-					<input type="number" bind:value={tileCount} class="debug-number" />
-				</div>
-				<div class="debug-item">
-					<span class="debug-label">Tile Width:</span>
-					<input type="range" min="500" max="2000" step="10" bind:value={tileWidth} class="debug-slider" />
-					<input type="number" bind:value={tileWidth} class="debug-number" />
-				</div>
-				<div class="debug-item">
-					<span class="debug-label">Tile Height:</span>
-					<input type="range" min="500" max="2000" step="10" bind:value={tileHeight} class="debug-slider" />
-					<input type="number" bind:value={tileHeight} class="debug-number" />
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>🔧 Transform</h3>
-				<div class="debug-item">
-					<span class="debug-label">Offset (Linked):</span>
-					<input type="range" min="-500" max="500" step="10" bind:value={offset} class="debug-slider" />
-					<input type="number" bind:value={offset} class="debug-number" />
-				</div>
-				<div class="debug-item">
-					<span class="debug-label">Offset X:</span>
-					<input type="range" min="-500" max="500" step="10" bind:value={offsetX} class="debug-slider" />
-					<input type="number" bind:value={offsetX} class="debug-number" />
-				</div>
-				<div class="debug-item">
-					<span class="debug-label">Offset Y:</span>
-					<input type="range" min="-500" max="500" step="10" bind:value={offsetY} class="debug-slider" />
-					<input type="number" bind:value={offsetY} class="debug-number" />
-				</div>
-				<div class="debug-item">
-					<span class="debug-label">Rotation:</span>
-					<input type="range" min="0" max="360" bind:value={rotation} class="debug-slider" />
-					<input type="number" bind:value={rotation} class="debug-number" />
-				</div>
-				<div class="debug-item">
-					<span class="debug-label">Scale:</span>
-					<input type="range" min="0.1" max="3" step="0.1" bind:value={scale} class="debug-slider" />
-					<input type="number" step="0.1" bind:value={scale} class="debug-number" />
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>📏 Mirroring Info</h3>
-				<div class="debug-item-single">
-					<span class="debug-label">Pattern:</span>
-					<span class="debug-value">Alternating Mirror (X & Y)</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Odd Tiles X:</span>
-					<span class="debug-value">Flipped Horizontally</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Odd Tiles Y:</span>
-					<span class="debug-value">Flipped Vertically</span>
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>📊 Render Info (Read-Only)</h3>
-				<div class="debug-item-single">
-					<span class="debug-label">Render Tiles X:</span>
-					<span class="debug-value">{renderTileCountX}</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Render Tiles Y:</span>
-					<span class="debug-value">{renderTileCountY}</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">Total Tiles:</span>
-					<span class="debug-value">{renderTileCountX * renderTileCountY}</span>
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>🖼️ ViewBox (Read-Only)</h3>
-				<div class="debug-item-single">
-					<span class="debug-label">ViewBox X:</span>
-					<span class="debug-value">{vbX.toFixed(2)}</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">ViewBox Y:</span>
-					<span class="debug-value">{vbY.toFixed(2)}</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">ViewBox Width:</span>
-					<span class="debug-value">{vbW.toFixed(2)}</span>
-				</div>
-				<div class="debug-item-single">
-					<span class="debug-label">ViewBox Height:</span>
-					<span class="debug-value">{vbH.toFixed(2)}</span>
-				</div>
-			</div>
-
-			<div class="debug-section">
-				<h3>ℹ️ Info</h3>
-				<div class="debug-item-single">
-					<span class="debug-label">Keyboard:</span>
-					<span class="debug-value">Press <kbd>D</kbd> to toggle</span>
-				</div>
-			</div>
-		</div>
-	</div>
-{/if}
 
 <style>
 	.toggle-container {
@@ -420,6 +462,16 @@
 		font-weight: 500;
 	}
 	
+	.expand-arrow {
+		margin-left: 8px;
+		font-size: 10px;
+		transition: transform 0.2s;
+	}
+	
+	.expand-arrow.expanded {
+		transform: rotate(180deg);
+	}
+	
 	.theme-name {
 		flex: 1;
 	}
@@ -435,220 +487,55 @@
 		border-radius: 3px;
 		border: 1px solid #666;
 	}
-
-	/* Debug Panel Styles */
-	.debug-panel {
-		position: fixed;
-		top: 80px;
-		left: 50%;
-		transform: translateX(-50%);
-		width: 90vw;
-		max-width: 1400px;
-		height: 85vh;
-		background: rgba(20, 20, 20, 0.98);
-		border: 2px solid #00ff00;
-		border-radius: 12px;
-		z-index: 10000;
-		overflow: hidden;
-		box-shadow: 0 0 50px rgba(0, 255, 0, 0.3);
-		display: flex;
-		flex-direction: column;
-	}
-
-	.debug-header {
-		background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-		padding: 20px 30px;
-		border-bottom: 2px solid #00ff00;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.debug-header h2 {
-		margin: 0;
-		color: #00ff00;
-		font-size: 1.8rem;
-		font-weight: 600;
-		text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
-	}
-
-	.debug-close {
-		background: #ff0000;
-		color: white;
-		border: none;
-		width: 40px;
-		height: 40px;
-		border-radius: 50%;
-		font-size: 1.5rem;
+	.custom-color-btn {
+		width: 100%;
+		height: 36px;
+		background: #2a2a2a;
+		border: 1px solid #444;
+		border-radius: 4px;
+		color: #ccc;
 		cursor: pointer;
+		font-size: 0.85rem;
 		transition: all 0.2s;
-		display: flex;
-		align-items: center;
-		justify-content: center;
 	}
 
-	.debug-close:hover {
-		background: #ff3333;
-		transform: scale(1.1);
+	.custom-color-btn:hover {
+		background: #333;
+		border-color: #555;
+		color: #fff;
 	}
 
-	.debug-content {
-		flex: 1;
-		overflow-y: auto;
-		padding: 30px;
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-		gap: 25px;
-		align-content: start;
+	.custom-color-active {
+		width: 100%;
 	}
 
-	.debug-section {
-		background: rgba(30, 30, 30, 0.8);
-		border: 1px solid #333;
-		border-radius: 8px;
-		padding: 20px;
-	}
-
-	.debug-section h3 {
-		margin: 0 0 15px 0;
-		color: #00d4ff;
-		font-size: 1.2rem;
-		font-weight: 500;
-		border-bottom: 2px solid #00d4ff;
-		padding-bottom: 10px;
-	}
-
-	.debug-item {
-		display: grid;
-		grid-template-columns: 150px 1fr auto;
-		gap: 10px;
-		align-items: center;
-		padding: 10px 0;
-		border-bottom: 1px solid #2a2a2a;
-		font-family: 'Courier New', monospace;
-	}
-
-	.debug-item:last-child {
-		border-bottom: none;
-	}
-
-	.debug-item-single {
+	.custom-color-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 10px 0;
-		border-bottom: 1px solid #2a2a2a;
-		font-family: 'Courier New', monospace;
+		margin-bottom: 0.5rem;
+		color: #ccc;
+		font-size: 0.85rem;
 	}
 
-	.debug-item-single:last-child {
-		border-bottom: none;
-	}
-
-	.debug-label {
-		color: #aaa;
-		font-size: 0.95rem;
-		font-weight: 500;
-	}
-
-	.debug-value {
-		color: #00ff00;
-		font-size: 1rem;
-		font-weight: 600;
-		display: flex;
-		align-items: center;
-		gap: 10px;
-	}
-
-	.color-preview-small {
-		display: inline-block;
-		width: 30px;
-		height: 30px;
-		border-radius: 4px;
-		border: 2px solid #666;
-	}
-
-	kbd {
-		background: #333;
-		border: 1px solid #555;
-		border-radius: 4px;
-		padding: 3px 8px;
-		font-family: monospace;
-		font-size: 0.9rem;
-		color: #fff;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-	}
-
-	/* Debug Controls */
-	.debug-select {
+	.reset-btn {
+		padding: 4px 8px;
 		background: #2a2a2a;
-		border: 1px solid #555;
-		border-radius: 4px;
-		color: #00ff00;
-		padding: 6px 12px;
-		font-size: 1rem;
-		font-family: monospace;
-		cursor: pointer;
-		grid-column: 2 / 4;
-	}
-
-	.debug-select:focus {
-		outline: none;
-		border-color: #00ff00;
-		box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
-	}
-
-	.debug-slider {
-		height: 6px;
-		background: #333;
+		border: 1px solid #444;
 		border-radius: 3px;
-		outline: none;
-		-webkit-appearance: none;
-	}
-
-	.debug-slider::-webkit-slider-thumb {
-		-webkit-appearance: none;
-		appearance: none;
-		width: 16px;
-		height: 16px;
-		background: #00ff00;
-		border-radius: 50%;
+		color: #ccc;
 		cursor: pointer;
-		box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+		font-size: 0.75rem;
+		transition: all 0.2s;
 	}
 
-	.debug-slider::-moz-range-thumb {
-		width: 16px;
-		height: 16px;
-		background: #00ff00;
-		border-radius: 50%;
-		cursor: pointer;
-		border: none;
-		box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+	.reset-btn:hover {
+		background: #333;
+		color: #fff;
 	}
-
-	.debug-number {
-		background: #2a2a2a;
-		border: 1px solid #555;
-		border-radius: 4px;
-		color: #00ff00;
-		padding: 6px 10px;
-		font-size: 0.95rem;
-		font-family: monospace;
-		width: 80px;
-		text-align: center;
-	}
-
-	.debug-number:focus {
-		outline: none;
-		border-color: #00ff00;
-		box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
-	}
-
-	/* Remove arrows from number inputs */
-	.debug-number::-webkit-inner-spin-button,
-	.debug-number::-webkit-outer-spin-button {
-		-webkit-appearance: none;
-		margin: 0;
+	/* ColorPicker Centering */
+	.sidebar-right :global(.container) {
+		margin-left: auto;
+		margin-right: auto;
 	}
 </style>

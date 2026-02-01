@@ -3,30 +3,30 @@
 
 	import { slide } from 'svelte/transition';
 
-	import PatternBasic from '$lib/components/PatternBasic.svelte';
 	import Pattern1 from '$lib/components/Pattern1.svelte';
 	import Pattern2 from '$lib/components/Pattern2.svelte';
 	import Pattern3 from '$lib/components/Pattern3.svelte';
+	import Pattern4 from '$lib/components/Pattern4.svelte';
 
 	let patterns = [
 		{
-			name: 'Pattern Basic',
-			component: PatternBasic,
-			description: 'The standard VSC Pattern with Sunrise Simulation.'
-		},
-		{
 			name: 'Pattern 1',
 			component: Pattern1,
-			description: 'Advanced VSC Pattern with Warp Distortion.'
+			description: 'The standard VSC Pattern with Sunrise Simulation.'
 		},
 		{
 			name: 'Pattern 2',
 			component: Pattern2,
-			description: 'Hybrid Pattern: Pattern 3 geometry with Pattern 1 mirroring.'
+			description: 'Advanced VSC Pattern with Warp Distortion.'
 		},
 		{
 			name: 'Pattern 3',
 			component: Pattern3,
+			description: 'Hybrid Pattern: Pattern 4 geometry with Pattern 2 mirroring.'
+		},
+		{
+			name: 'Pattern 4',
+			component: Pattern4,
 			description: 'Geometric mesh pattern with interconnected polygons.'
 		}
 	];

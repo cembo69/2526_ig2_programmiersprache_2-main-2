@@ -11,26 +11,29 @@
 	let tileCountY = $derived(tileCount);
 	
 	// Offset controls rotation
-	let offset = $state(135);
+	let offset = $state(6);
 	const offsetX = $derived(offset);
 	const offsetY = $derived(offset);
 	const rotation = $derived(174 + (offset - 10) * (26 / 190));
 	const scale = 1;
 	const meshTightness = 0;
 
-	// Theme definitions - genau wie in Pattern 3
+	// Theme definitions - genau wie in Pattern 1
 	const themes = {
-		'Tron': ['#00D2FF', '#39FF14', '#FF073A', '#1B1B1B'],
-		'Chinatown': ['#E60012', '#FFD700', '#006747', '#2A2A2A'],
+		'Moonlight': ['#6D9BC3', '#C0C0C0', '#003366', '#2F3C45'],
+		'Senegal': ['#E60012', '#FFD700', '#006747', '#2A2A2A'],
 		'Forest': ['#228B22', '#8A9A5B', '#A67C52', '#6B4F2A'],
 		'Miami': ['#00B5B8', '#FF6F61', '#FFDD00', '#F1F1F1'],
-		'Moonlight': ['#6D9BC3', '#C0C0C0', '#003366', '#2F3C45']
+		'Amber Glow': ['#FFB000', '#FF8C42', '#D96C2C', '#A94A1F'],
+		'Neon Party': ['#FF2EC4', '#7B5CFF', '#2EE6FF', '#00FF9C'],
+		'Electric Sunset': ['#FF4E00', '#FF9500', '#FFB703', '#8338EC'],
+		'Cosmic Candy': ['#FF61D2', '#9B5DE5', '#00BBF9', '#00F5D4']
 	};
 
-	let selectedTheme = $state('Miami');
+	let selectedTheme = $state('Moonlight');
 	
 	// Custom Color für ColorPicker
-	let customColor = $state(null);
+	let customColor = $state('#ccd9ff');
 	
 	// 4 Farben für verschiedene Pattern-Bereiche
 	let color1 = $derived(themes[selectedTheme][0]);
@@ -41,12 +44,15 @@
 	// Basis-Farbe für HSL-Berechnungen - nutzt customColor wenn gesetzt, sonst color1
 	let baseColor = $derived(customColor || color1);
 	
-	// Kontrast-Steuerung für 3D-Effekt
-	const contrast = 0.8;
-	
 	// Hintergrund Toggle
 	let darkBackground = $state(true);
 	let backgroundColor = $derived(darkBackground ? '#000000' : '#ffffff');
+	
+	// Theme Picker Toggle
+	let showAllThemes = $state(false);
+	
+	// Kontrast-Steuerung für 3D-Effekt
+	const contrast = 0.9;
 
 	// HSL Helper Functions
 	function hexToRgb(hex) {
@@ -97,9 +103,20 @@
 
 	// User's requested center-out logic with rotation compensation
 	function calculatePosition(index, count, size, gap) {
-		const rotationFactor = Math.abs(rotation - 180) / 26;
+		// As tiles rotate, their diagonal footprint increases
+		// We need to reduce the gap proportionally to keep corners touching
+		// At 180° (no rotation): full gap
+		// At 225° (45° rotation): reduced gap to compensate for diagonal expansion
+
+		// Calculate rotation factor (0 to 1, where 1 = maximum rotation)
+		const rotationFactor = Math.abs(rotation - 180) / 26; // 26 is the max rotation range
+
+		// Reduce gap based on rotation - more rotation = less gap needed
+		// The diagonal of a square is √2 ≈ 1.414 times larger
+		// So we reduce the gap by up to ~30% at maximum rotation
 		const rotationCompensation = 1 - rotationFactor * 0.3;
 		const adjustedGap = gap * rotationCompensation;
+
 		const effectiveSize = size + adjustedGap;
 		return (index - count / 2) * effectiveSize;
 	}
@@ -122,13 +139,14 @@
 	// Let's try a reactive one that ensures the whole pattern is visible, centered on 0,0.
 
 	// Total width/height with rotation compensation
+	// Apply the same rotation compensation to the viewBox calculation
 	const rotationFactor = $derived(Math.abs(rotation - 180) / 26);
 	const rotationCompensation = $derived(1 - rotationFactor * 0.3);
 	const adjustedOffsetX = $derived(offsetX * rotationCompensation);
 	const adjustedOffsetY = $derived(offsetY * rotationCompensation);
 
-	// Add extra tiles to ensure canvas is always filled
-	const extraTiles = 8;
+	// Add extra tiles to ensure canvas is always filled (even when pattern shifts)
+	const extraTiles = 8; // Add 4 tiles on each side for infinite effect
 	const renderTileCountX = $derived(tileCountX + extraTiles);
 	const renderTileCountY = $derived(tileCountY + extraTiles);
 
@@ -252,6 +270,7 @@
 	<svg viewBox="{vbX} {vbY} {vbW} {vbH}" class="svg-canvas" preserveAspectRatio="xMidYMid meet">
 		<!-- Background Rectangle -->
 		<rect x="{vbX}" y="{vbY}" width="{vbW}" height="{vbH}" fill="{backgroundColor}" />
+		
 		{#each Array(renderTileCountY) as _, yi}
 			{#each Array(renderTileCountX) as _, xi}
 				{@const scaleX = xi % 2 !== 0 ? -1 : 1}
@@ -332,20 +351,38 @@
 	<div class="theme-selector">
 		<div class="label">Color Theme</div>
 		<div class="theme-buttons">
-			{#each Object.keys(themes) as theme}
-				<button 
-					class="theme-button" 
-					class:active={selectedTheme === theme}
-					onclick={() => selectedTheme = theme}
-				>
-					<span class="theme-name">{theme}</span>
-					<div class="theme-colors">
-						{#each themes[theme] as color}
-							<div class="color-dot" style="background-color: {color}"></div>
-						{/each}
-					</div>
-				</button>
-			{/each}
+			<!-- Aktives Theme immer anzeigen -->
+			<button 
+				class="theme-button active"
+				onclick={() => showAllThemes = !showAllThemes}
+			>
+				<span class="theme-name">{selectedTheme}</span>
+				<div class="theme-colors">
+					{#each themes[selectedTheme] as color}
+						<div class="color-dot" style="background-color: {color}"></div>
+					{/each}
+				</div>
+				<span class="expand-arrow" class:expanded={showAllThemes}>▼</span>
+			</button>
+			
+			<!-- Andere Themes ausklappbar -->
+			{#if showAllThemes}
+				{#each Object.keys(themes) as theme}
+					{#if theme !== selectedTheme}
+						<button 
+							class="theme-button"
+							onclick={() => { selectedTheme = theme; customColor = null; showAllThemes = false; }}
+						>
+							<span class="theme-name">{theme}</span>
+							<div class="theme-colors">
+								{#each themes[theme] as color}
+									<div class="color-dot" style="background-color: {color}"></div>
+								{/each}
+							</div>
+						</button>
+					{/if}
+				{/each}
+			{/if}
 		</div>
 	</div>
 	<hr />
@@ -438,6 +475,16 @@
 		font-weight: 500;
 	}
 	
+	.expand-arrow {
+		margin-left: 8px;
+		font-size: 10px;
+		transition: transform 0.2s;
+	}
+	
+	.expand-arrow.expanded {
+		transform: rotate(180deg);
+	}
+	
 	.theme-name {
 		flex: 1;
 	}
@@ -453,7 +500,52 @@
 		border-radius: 3px;
 		border: 1px solid #666;
 	}
+	.custom-color-btn {
+		width: 100%;
+		height: 36px;
+		background: #2a2a2a;
+		border: 1px solid #444;
+		border-radius: 4px;
+		color: #ccc;
+		cursor: pointer;
+		font-size: 0.85rem;
+		transition: all 0.2s;
+	}
 
+	.custom-color-btn:hover {
+		background: #333;
+		border-color: #555;
+		color: #fff;
+	}
+
+	.custom-color-active {
+		width: 100%;
+	}
+
+	.custom-color-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 0.5rem;
+		color: #ccc;
+		font-size: 0.85rem;
+	}
+
+	.reset-btn {
+		padding: 4px 8px;
+		background: #2a2a2a;
+		border: 1px solid #444;
+		border-radius: 3px;
+		color: #ccc;
+		cursor: pointer;
+		font-size: 0.75rem;
+		transition: all 0.2s;
+	}
+
+	.reset-btn:hover {
+		background: #333;
+		color: #fff;
+	}
 	/* ColorPicker Centering */
 	.sidebar-right :global(.container) {
 		margin-left: auto;
