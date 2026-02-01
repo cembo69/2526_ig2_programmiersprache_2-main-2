@@ -92,15 +92,15 @@
 		return rgbToHsl(rgb.r, rgb.g, rgb.b);
 	}
 
-	// Positionierungslogik - angepasst für keine Überlappung
-	// Die Tiles müssen genau nebeneinander platziert werden
+	// Standard positioning logic - von innen nach außen
 	function calculatePosition(index, count, size, gap) {
-		// Einfache Berechnung: jede Tile bekommt ihre Position basierend auf Index
-		return (index - count / 2) * size + (index - count / 2) * gap;
+		const basePosition = (index - count / 2) * size;
+		const offsetPosition = (index - count / 2 + 0.5) * gap;
+		return basePosition + offsetPosition;
 	}
 
 	// Add extra tiles to ensure canvas is always filled
-	const extraTiles = 8;
+	const extraTiles = 12;
 	const renderTileCountX = $derived(tileCountX + extraTiles);
 	const renderTileCountY = $derived(tileCountY + extraTiles);
 
@@ -208,7 +208,7 @@
 </div>
 
 <div class="sidebar-right">
-	<Slider min={5} max={35} step={1} bind:value={tileCount} label="Tile Count" />
+	<Slider min={5} max={35} step={2} bind:value={tileCount} label="Tile Count" />
 	<hr />
 	<div class="theme-selector">
 		<div class="label">Color Theme</div>

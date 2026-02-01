@@ -102,7 +102,7 @@
 	const adjustedOffsetY = $derived(offsetY);
 
 	// Add extra tiles to ensure canvas is always filled
-	const extraTiles = 8;
+	const extraTiles = 12;
 	const renderTileCountX = $derived(tileCountX + extraTiles);
 	const renderTileCountY = $derived(tileCountY + extraTiles);
 
@@ -210,7 +210,7 @@
 </div>
 
 <div class="sidebar-right">
-	<Slider min={1} max={25} step={1} bind:value={tileCount} label="Tile Count" />
+	<Slider min={5} max={25} step={2} bind:value={tileCount} label="Tile Count" />
 	<hr />
 	<div class="theme-selector">
 		<div class="label">Color Theme</div>

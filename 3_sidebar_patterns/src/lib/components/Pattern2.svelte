@@ -101,13 +101,11 @@
 	// Actually, simple Euclidean distance in index-space works well.
 	let maxDist = $derived(Math.sqrt(Math.pow(tileCountX / 2, 2) + Math.pow(tileCountY / 2, 2)));
 
-	// User's requested center-out logic with rotation compensation
+	// Standard positioning logic - von innen nach außen
 	function calculatePosition(index, count, size, gap) {
-		const rotationFactor = Math.abs(rotation - 180) / 26;
-		const rotationCompensation = 1 - rotationFactor * 0.3;
-		const adjustedGap = gap * rotationCompensation;
-		const effectiveSize = size + adjustedGap;
-		return (index - count / 2) * effectiveSize;
+		const basePosition = (index - count / 2) * size;
+		const offsetPosition = (index - count / 2 + 0.5) * gap;
+		return basePosition + offsetPosition;
 	}
 
 	// Helper to get HSL object directly from hex
@@ -134,7 +132,7 @@
 	const adjustedOffsetY = $derived(offsetY * rotationCompensation);
 
 	// Add extra tiles to ensure canvas is always filled
-	const extraTiles = 8;
+	const extraTiles = 12;
 	const renderTileCountX = $derived(tileCountX + extraTiles);
 	const renderTileCountY = $derived(tileCountY + extraTiles);
 
@@ -323,7 +321,7 @@
 </div>
 
 <div class="sidebar-right">
-	<Slider min={5} max={35} step={1} bind:value={tileCount} label="Tile Count" />
+	<Slider min={5} max={35} step={2} bind:value={tileCount} label="Tile Count" />
 	<hr />
 	<Slider min={6} max={135} bind:value={offset} label="Tile Offset / Rotation" />
 	<hr />

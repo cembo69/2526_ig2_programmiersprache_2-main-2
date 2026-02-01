@@ -63,10 +63,7 @@ body {
 }
 
 svg {
-	shape-rendering: auto;
-	shape-rendering: crispEdges;
 	shape-rendering: geometricPrecision;
-	shape-rendering: optimizeSpeed;
 }
 
 

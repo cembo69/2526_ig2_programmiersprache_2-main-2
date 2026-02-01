@@ -160,13 +160,6 @@
 >
   <SliderSV bind:hsvValues {width} height={height} />
   <SliderH bind:hsvValues {width} />
-  <input 
-    type="text" 
-    readonly 
-    value={color || '#000000'} 
-    class="hex-display"
-    onclick={(e) => e.target.select()}
-  />
 </div>
 
 <style>
@@ -180,24 +173,5 @@
     box-sizing: border-box;
     line-height: 1; /* verhindern, dass font-baseline die Höhe verschiebt */
     font-size: inherit;
-  }
-  
-  .hex-display {
-    width: 100%;
-    margin-top: 6px;
-    padding: 6px 8px;
-    background: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 4px;
-    color: #fff;
-    font-family: monospace;
-    font-size: 0.9rem;
-    text-align: center;
-    cursor: pointer;
-  }
-  
-  .hex-display:focus {
-    outline: 2px solid #666;
-    background: #333;
   }
 </style>

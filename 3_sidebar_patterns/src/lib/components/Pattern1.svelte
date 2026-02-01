@@ -101,24 +101,11 @@
 	// Actually, simple Euclidean distance in index-space works well.
 	let maxDist = $derived(Math.sqrt(Math.pow(tileCountX / 2, 2) + Math.pow(tileCountY / 2, 2)));
 
-	// User's requested center-out logic with rotation compensation
+	// Standard positioning logic - von innen nach außen
 	function calculatePosition(index, count, size, gap) {
-		// As tiles rotate, their diagonal footprint increases
-		// We need to reduce the gap proportionally to keep corners touching
-		// At 180° (no rotation): full gap
-		// At 225° (45° rotation): reduced gap to compensate for diagonal expansion
-
-		// Calculate rotation factor (0 to 1, where 1 = maximum rotation)
-		const rotationFactor = Math.abs(rotation - 180) / 26; // 26 is the max rotation range
-
-		// Reduce gap based on rotation - more rotation = less gap needed
-		// The diagonal of a square is √2 ≈ 1.414 times larger
-		// So we reduce the gap by up to ~30% at maximum rotation
-		const rotationCompensation = 1 - rotationFactor * 0.3;
-		const adjustedGap = gap * rotationCompensation;
-
-		const effectiveSize = size + adjustedGap;
-		return (index - count / 2) * effectiveSize;
+		const basePosition = (index - count / 2) * size;
+		const offsetPosition = (index - count / 2 + 0.5) * gap;
+		return basePosition + offsetPosition;
 	}
 
 	// Helper to get HSL object directly from hex
@@ -146,7 +133,7 @@
 	const adjustedOffsetY = $derived(offsetY * rotationCompensation);
 
 	// Add extra tiles to ensure canvas is always filled (even when pattern shifts)
-	const extraTiles = 8; // Add 4 tiles on each side for infinite effect
+	const extraTiles = 12; // Add extra tiles for seamless coverage
 	const renderTileCountX = $derived(tileCountX + extraTiles);
 	const renderTileCountY = $derived(tileCountY + extraTiles);
 
@@ -336,7 +323,7 @@
 </div>
 
 <div class="sidebar-right">
-	<Slider min={5} max={35} step={1} bind:value={tileCount} label="Tile Count" />
+	<Slider min={5} max={35} step={2} bind:value={tileCount} label="Tile Count" />
 	<hr />
 	<Slider min={6} max={135} bind:value={offset} label="Tile Offset / Rotation" />
 	<hr />
